@@ -1,6 +1,49 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 09월 14일
+> 자료 수집: API 크롤러 만들기
+
+**1. 크롤링 준비: 무엇을 준비할까?**
+- 크롤링을 시작하기 위해서는 여러가지 설정을 해주어야 한다.
+- 이러한 설정을 진행하기 위한 단계로는 총 4가지가 있다.
+```r
+1. 작업 폴더 설정하기
+
+install.packages("rstudioapi")  # rstudioapi 설치
+setwd(dirname(rstudioqpi::getSourceEditorContext()$path))  # 작업 폴더 설정
+getwd()  # 작업 폴더 확인
+```
+- rstudioapi라는 라이브러리를 이용하면 스크립트가 저장된 위치를 작업 폴더로 쉽게 설정할 수 있다.
+```r
+2. 수집 대상 지역 설정하기
+
+loc <- read.csv("../sigun_code/sigun_code.csv")  # 지역 코드
+loc$code <- as.character(loc$code)  # 행정구역명 문자 변환
+head(loc, 2)  # 확인
+```
+- 이때, head() 함수는 데이터를 가져올 때 처음 값부터 차례대로 가져오는데, 마지막 값부터 확인하고 싶다면 tail() 함수를 대신 사용하면 된다.
+- 지역코드란 기초 자치 단체인 시·군·구에 할당한 코드로서 광역시·도(2자리) + 기초 시·군·구(3자리)로 이루어진 코드를 의미한다.
+- 지역코드 예시는 아래와 같다.
+<img width="634" alt="지역 코드 예시" src="https://user-images.githubusercontent.com/62285642/190842573-c5019527-478e-4a59-b669-8bfe143f783a.png">
+```r
+3. 수집 기간 설정하기
+
+datelist <- seq(from = as.Date('2021-01-01'),  #시작
+                to = as.Date('2021-12-31'),  # 종료
+                by = '1 month')  # 단위
+datelist <- format(datelist, format = '%Y%m')  # 형식 변환(YYYY-MM-DD => YYYYMM)
+datelist[1:3]  # 확인
+```
+- seq() 함수는 등차수열을 만들 때 활용하는 함수이다.
+- 따라서 원하는 기간동안 일정한 간격의 데이터를 출력하기 위해서는 from - to를 이용해 수집 기간을 설정하고, by를 통해 수집 기간의 간격을 설정한다.
+```r
+4. 인증키 입력하기
+
+service_key <- "인증키"  # 인증키 입력
+```
+- 인증키는 이전처럼 개발 계정의 상세보기 화면에서 일반 인증키(Encoding) 항목을 확인하면 된다.
+
 ## 09월 07일
 > 자료 수집 전에 알아야 할 내용
 
@@ -12,7 +55,7 @@ Open data R with Shiny 2022
 
 **+) 공공데이터란?**
 - 공공기관이 법령에 따라 생성, 수집하는 전자적 형태의 정보로써 개방 가능한 모든 데이터를 의미한다.
-- 이러한 공공데이터를 한 곳에 모아 제공하는 통합 플랫폼이 바로 공공데이터포털이다.
+- 이러한 공공데이터를 한 곳에 모아 제공하는 통합 플랫폼이 바로 [공공데이터포털](https://www.data.go.kr/)이다.
 
 **2. API 인증키 얻기**
 - 공공데이터포털에서 인증키를 발급받기 위해서는 공공데이터포털에 접속하여 회원가입 및 로그인을 해야한다.
@@ -89,8 +132,8 @@ Open data R with Shiny 2022
 install.packages("wordcloud") 
 library(wordcloud)
 
-word <- c("인천광역시", "강화군", "웅진군")  // 단어 할당
-frequency <- c(651, 85, 61)  // 단어별 빈도 할당
+word <- c("인천광역시", "강화군", "웅진군")  # 단어 할당
+frequency <- c(651, 85, 61)  # 단어별 빈도 할당
 
-wordcloud(word, frequency, colors="blue",family="AppleGothic")  // 워드클라우드 출력
+wordcloud(word, frequency, colors="blue",family="AppleGothic")  # 워드클라우드 출력
 ```
