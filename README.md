@@ -1,6 +1,81 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 09월 28일
+> 자료 수집: API 크롤러 만들기
+
+**3. 크롤러 제작: 자동으로 자료 수집하기**
+- 자료 수집을 위한 크롤러를 제작하기 위해서는 지난 1단계에 이어 총 5단계를 시행해야 한다.
+```r
+2. 자료 요청하고 응답받기
+
+for (i in 1:length(url_list)) {  # 요청 목록(url_list) 반복
+  raw_data[[i]] <- xmlTreeParse(url_list[i], useInternalNodes = TRUE,
+                                encoding = "utf-8")  # 결과 저장
+  root_Node[[i]] <- xmlRoot(raw_data[[i]])  # xmlRoot로 루트 노드 이하 추출
+```
+- 자료를 요청하고 응답받을 때는 URL로 요청해 XML로 응답을 받는다.
+```r
+3. 전체 거래 건수 확인하기
+
+items <- root_Node[[i]][[2]][['items']]  # 전체 거래 내역(items) 추출
+size <- xmlSize(items)  # 전체 거래 건수 확인
+```
+- 이때, 전체 거래 건수의 사이즈를 확인하고 싶다면 R Studio의 Environment 창에서 Values의 size를 확인하면 된다.
+```r
+4. 개별 거래 내역 추출하기
+
+item <- list()  # 전체 거래 내역(items) 저장 임시 리스트 생성
+item_temp_dt <- data.table()  # 세부 거래 내역(item) 저장 임시 테이블 생성
+Sys.sleep(.1)  # 0.1초 멈춤 
+for(m in 1:size)  {  # 전체 거래 건수(size)만큼 반복
+  # 세부 거래 내역 분리
+  item_temp <- xmlSApply(items[[m]], xmlValue)
+  item_temp_dt <- data.table(year = item_temp[4],  # 거래 연도
+                              month = item_temp[7],  # 거래 월
+                              day = item_temp[8],  # 거래 일
+                              price = item_temp[1],  # 거래 금액
+                              code = item_temp[12],  # 지역 코드
+                              donf_nm = item_temp[5],  # 법정동
+                              jibun = item_temp[11],  # 지번
+                              con_year = item_temp[3],  # 건축 연도
+                              apt_nm = item_temp[6],  # 아파트 이름
+                              area = item_temp[9],  # 전용면적
+                              floor = item_temp[13])  # 층수
+  item[[m]] <- item_temp_dt  # 분리된 거래 내역 순서대로 저장
+}
+apt_bind <- rbindlist(item)  # 통합 저장
+```
+- 크롤러를 활용하여 데이터를 수집할 때 리스트형 자료를 사용하는 경우가 많다.
+- 그러나 데이터를 저장하거나 분석하려면 리스트형보다 데이터프레임형으로 변환하는 것이 편리하다.
+- 따라서 위 코드에서 사용된 rbindlist()나 ldply()를 사용하면 리스트 안에 포함된 작은 데이터프레임 여러 개를 하나로 결합할 수 있다.
+```r
+5. 응답 내역 저장하기
+
+  region_nm <-subset(loc, code == str_sub(url_list[i], 115, 119))$addr_1  # 지역명
+  month <- str_sub(url_list[i], 130, 135)  # 연월(YYYYMM)
+  path <- as.character(paste0("./02_raw_data/", region_nm, "_", month, ".csv"))
+  write.csv(apt_bind, path)  # CSV 저장
+  msg <- paste0("[", i, "/", length(url_list), 
+                "] 수집한 데이터를 [", path,"] 에 저장합니다.")  # 알림 메세지
+  cat(msg, "\n\n")
+}
+```
+- 응답 내역을 저장해주면 아래와 같이 csv 파일이 차례대로 저장된다.
+<img width="761" alt="응답 내역 저장 결과" src="https://user-images.githubusercontent.com/62285642/193393960-e86dbfe3-60d9-49a7-9eaf-954335a8860b.png">
+
+**4. 자료 정리: 자료 통합하기**
+- 자료 정리를 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. CSV 파일 통합하기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))  # 작업 폴더 설정
+files <- dir("./02_raw_data") # 폴더 내 모든 파일명 읽기
+library(plyr)  # install.packages("plyr")
+apt_price <- ldply(as.list(paste0("./02_raw_data/", files)), read.csv)  # 결합
+tail(apt_price, 2)  # 확인
+```
+
 ## 09월 21일
 > 자료 수집: API 크롤러 만들기
 
@@ -34,7 +109,7 @@ for (i in 1:nrow(loc)) {  # 외부 반복: 25개 자치구
   cat(msg,"\n\n")
 }
 ```
-- 위 코드와 아래 코드에서 사용된 paste0() 함수는 자주 사용하는 함수로 자세한 설명은 아래의 **"+) paste0()란?"** 항목에서 살펴볼 수 있다.
+- 위 코드와 아래 코드에서 사용된 paste0() 함수는 자주 사용하는 함수로, 자세한 설명은 아래의 **"+) paste0()란?"** 항목에서 살펴볼 수 있다.
 ```r
 3. 요청 목록 확인하기
 
@@ -61,10 +136,10 @@ dir.create("02_raw_data")  # 새로운 폴더 만들기
 
 **+) paste0()란?**
 - paste0 함수는 paste 함수에서 sep=''를 적용해준 것과 같이 각각의 원소를 공백없이 이어주는 함수이다.
-- 이러한 paste0 함수의 기반이 되는 paste 함수는 다양한 표현 방법이 있다. 
+- 이러한 paste0 함수의 기반이 되는 paste 함수에는 다양한 표현 방법이 있다. 
   1. 원소가 묶여있지 않으면 공백을 넣어 묶어준다.
   ```r
-  paste(1,2,3,4)
+  paste(1, 2, 3, 4)
   [1] "1 2 3 4"
   ```
   2. 원소가 묶여있으면 하나씩 분리해준다.
@@ -89,29 +164,27 @@ dir.create("02_raw_data")  # 새로운 폴더 만들기
   paste(c('첫', '두', '세', '네', '다섯'), rep('번째', 7))
   [1] "첫 번째"   "두 번째"   "세 번째"   "네 번째"   "다섯 번째" "첫 번째"   "두 번째"
   ```
-- 이뿐만 아니라 paste 함수에는 다양한 옵션들이 있다. 
+- 이 외에도 paste 함수는 다양한 옵션들을 지니고 있다.
   1. sep
-    - sep는 '구분하다'를 뜻하는 seperate의 약자이다.
-    - sep를 이용해 paste에 나열된 각각의 원소 사이에 옵션을 적용하여 구분할 수 있다.
+      - sep는 '구분하다'를 뜻하는 seperate의 약자이다.
+      - sep를 이용해 paste에 나열된 각각의 원소 사이에 옵션을 적용하여 구분할 수 있다.
     ```r
-   paste(1,2,3,4, sep='-')  # - 로 구분하기
-  [1] "1-2-3-4"
-
-  paste('function','in','r', sep='   ')  # 공백(스페이스바)로 구분하기
-  [1] "function   in   r"
-
-  paste('문자열을','합쳐','주세요', sep='')  # 공백으로 구분하기(공백없음)
-  [1] "문자열을합쳐주세요"
-   ```
+    paste(1, 2, 3, 4, sep='-')  # - 로 구분하기
+    [1] "1-2-3-4"
+    paste('function', 'in', 'r', sep='   ')  # 공백(스페이스바)로 구분하기
+    [1] "function   in   r"
+    paste('문자열을', '합쳐', '주세요', sep='')  # 공백으로 구분하기(공백없음)
+    [1] "문자열을합쳐주세요"
+    ```
   2. collapse
-    - collapse는 결과값이 두개 이상일 때, 각각의 결과값에 옵션을 주어 이어붙일 때 사용한다.
-   ```r
-   paste(c('첫','두','세','네','다섯'), rep('번째', 5), sep='', collapse=', ')
-  [1] "첫번째, 두번째, 세번째, 네번째, 다섯번째"
-
-  paste(1:10, c('st','nd','rd', rep('th', 7)), sep='', collapse = '_')     
-  [1] "1st_2nd_3rd_4th_5th_6th_7th_8th_9th_10th"
-   ```
+      - collapse는 결과값이 두개 이상일 때, 각각의 결과값에 옵션을 주어 이어붙일 때 사용한다.
+    ```r
+    paste(c('첫', '두', '세', '네', '다섯'), rep('번째', 5), sep='', collapse=', ')
+    [1] "첫번째, 두번째, 세번째, 네번째, 다섯번째"
+  
+    paste(1:10, c('st', 'nd', 'rd', rep('th', 7)), sep='', collapse = '_')     
+    [1] "1st_2nd_3rd_4th_5th_6th_7th_8th_9th_10th"
+    ```
 
 ## 09월 14일
 > 자료 수집: API 크롤러 만들기
@@ -123,7 +196,7 @@ dir.create("02_raw_data")  # 새로운 폴더 만들기
 1. 작업 폴더 설정하기
 
 install.packages("rstudioapi")  # rstudioapi 설치
-setwd(dirname(rstudioqpi::getSourceEditorContext()$path))  # 작업 폴더 설정
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))  # 작업 폴더 설정
 getwd()  # 작업 폴더 확인
 ```
 - rstudioapi라는 라이브러리를 이용하면 스크립트가 저장된 위치를 작업 폴더로 쉽게 설정할 수 있다.
