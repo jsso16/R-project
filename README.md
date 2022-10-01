@@ -52,7 +52,7 @@ apt_bind <- rbindlist(item)  # 통합 저장
 ```r
 5. 응답 내역 저장하기
 
-  region_nm <-subset(loc, code == str_sub(url_list[i], 115, 119))$addr_1  # 지역명
+  region_nm <- subset(loc, code == str_sub(url_list[i], 115, 119))$addr_1  # 지역명
   month <- str_sub(url_list[i], 130, 135)  # 연월(YYYYMM)
   path <- as.character(paste0("./02_raw_data/", region_nm, "_", month, ".csv"))
   write.csv(apt_bind, path)  # CSV 저장
