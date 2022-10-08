@@ -47,7 +47,7 @@ apt_price <- as.data.frame(apply(apt_price, 2, str_trim))  # 공백 제거
 head(apt_price$price, 2)  # 매매가 확인
 ```
 - 결측값은 보통 NA(Not Avaliable)로 표현한다.
-- 이때 데이터에 NA 값이 있는지 확인하기 위해서 is.na 함수를 사용하는데, table 함수를 함께 사용하면 NA가 몇 개 포함되었는지 알 수 있다.
+- 이때 데이터에 NA 값이 있는지 확인하기 위해서 is.na() 함수를 사용하는데, table() 함수를 함께 사용하면 NA가 몇 개 포함되었는지 알 수 있다.
 - 또한 매매가 확인 코드를 실행해보면 문자열 데이터 앞에 공백이 있는 것을 확인할 수 있다.
 - 이러한 공백을 제거하기 위해서는 stringr 패키지에 들어있는 str_trim() 함수를 사용하면 된다.
 
