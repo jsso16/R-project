@@ -1,6 +1,134 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 10월 05일
+> 자료 수집: API 크롤러 만들기
+
+**4. 자료 정리: 자료 통합하기**
+- 지난 1단계에 이어 통합한 데이터를 저장하기 위해서는 다음 단계를 시행해야 한다.
+```r
+2. 통합 데이터 저장하기
+
+dir.create("./03_integrated")  # 새로운 폴더 생성
+save(apt_price, file = "./03_integrated/03_apt_price.rdata")  # 저장
+write.csv(apt_price, "./03_integrated/03_apt_price.csv")
+```
+- 하나의 파일로 통합한 데이터는 아래와 같다.
+<img width="708" alt="통합 데이터" src="https://user-images.githubusercontent.com/62285642/194691465-84b5c4f4-ca6b-41df-bab1-5be3ba3a9c63.png">
+
+> 전처리: 데이터를 알맞게 다듬기
+
+**1. 불필요한 정보 지우기**
+- 자료 수집 과정에서 발생하는 문제를 줄이기 위해 불필요한 정보를 정리하는 작업을 전처리라고 한다.
+- 전처리를 진행하기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. 수집한 데이터 불러오기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+options(warn=-1)
+
+load("./03_integrated/03_apt_price.rdata")  # 실거래 자료 불러오기
+head(apt_price, 2)  # 자료 확인
+```
+- 이때, warn=-1을 이용해 중요도가 떨어지는 경고 메세지를 무시한다.
+```r
+2. 결측값과 공백 제거하기
+
+table(is.na(apt_price))  # 결측값 확인
+
+apt_price <- na.omit(apt_price)  # 결측값 제거
+table(is.na(apt_price))  # 결측값 확인
+
+head(apt_price$price, 2)  # 매매가 확인
+
+library(stringr)  # 문자열 처리 패키지 실행
+apt_price <- as.data.frame(apply(apt_price, 2, str_trim))  # 공백 제거
+# apply([적용 테이블], [1: raw, 2: col], [적용 함수])
+head(apt_price$price, 2)  # 매매가 확인
+```
+- 결측값은 보통 NA(Not Avaliable)로 표현한다.
+- 이때 데이터에 NA 값이 있는지 확인하기 위해서 is.na 함수를 사용하는데, table 함수를 함께 사용하면 NA가 몇 개 포함되었는지 알 수 있다.
+- 또한 매매가 확인 코드를 실행해보면 문자열 데이터 앞에 공백이 있는 것을 확인할 수 있다.
+- 이러한 공백을 제거하기 위해서는 stringr 패키지에 들어있는 str_trim() 함수를 사용하면 된다.
+
+**2. 항목별 데이터 다듬기**
+- 아파트 실거래 자료를 살펴보면 문자와 숫자가 섞여있는 것을 확인할 수 있다.
+- 이처럼 데이터의 형태가 일관되지 않으면 분석할 때 제약이 있다.
+- 따라서 항목별로 데이터를 알맞게 분석하기 위해서는 데이터의 속성을 변경해주어야 한다.
+- 이렇게 항목별로 데이터를 다듬기 위해서는 총 6단계를 시행해야 한다.
+```r
+1. 매매 연월일 만들기
+
+library(lubridate)  # install.packages("lubridate")
+library(dplyr)  # install.packages("dplyr")
+apt_price <- apt_price %>% mutate(ymd=make_date(year, month, day))  # 연월일
+apt_price$ym <- floor_date(apt_price$ymd, "month")  # 연월
+head(apt_price, 2)  # 자료 확인
+```
+- 아래 코드에서 사용된 파이프라인 연산자(%>%)는 dplyr 패키지에서 제공하는 연산자로, 복잡한 계산을 간단히 처리해준다.
+- 예를 들어, 중첩 함수식을 계산하려면 안쪽부터 바깥쪽까지 연이어 결과를 구하고 대입하는 과정을 반복해야 하지만, 이렇게 하면 코드가 길어질 수밖에 없다.
+- 그러나 파이프라인 연산자를 이용하면 아래와 같이 이를 직관적으로 표현할 수 있다.
+<img width="584" alt="파이프라인 연산자" src="https://user-images.githubusercontent.com/62285642/194691946-070a37ad-576a-42cc-b9a0-143cc3926bb7.png">
+
+```r
+2. 매매가 변환하기
+
+head(apt_price$price, 3)  # 매매가 확인
+
+apt_price$price <- apt_price$price %>% sub(",","",.) %>% as.numeric()  # 쉼표 제거
+head(apt_price$price, 3)  # 매매가 확인
+```
+- sub() 함수는 특정 문자열을 찾아내 첫번째에 해당하는 것만 대체 또는 제거할 수 있도록 해주는 함수이다.
+```r
+3. 주소 조합하기
+
+head(apt_price$apt_nm, 30)
+
+apt_price$apt_nm <- gsub("\\(.*","", apt_price$apt_nm)  # 괄호 이후 삭제
+head(apt_price$apt_nm, 30)  # 아파트 이름 확인
+
+loc <- read.csv("../sigun_code/sigun_code.csv")  # 지역 코드 불러오기
+apt_price <- merge(apt_price, loc, by = 'code')  # 지역명 결합하기
+apt_price$juso_jibun <- paste0(apt_price$addr_2, apt_price$dong, " ",
+                               apt_price$jibun, " ", apt_price$apt_nm)  # 주소 조합
+head(apt_price, 2)  # 자료 확인
+```
+- gsub() 함수는 특정 문자열을 모두 찾아 원하는 문자열로 대체 또는 제거할 수 있도록 해주는 함수이다.
+```r
+4. 건축 연도, 면적 변환하기 
+
+head(apt_price$con_year, 3)  # 건축 연도 확인
+
+apt_price$con_year <- apt_price$con_year %>% as.numeric()  # 건축 연도 숫자 변환
+head(apt_price$con_year, 3)  # 건축 연도 확인
+```
+- 문자형을 숫자형으로 바꿔주기 위해서는 as.numeric() 함수를 사용한다.
+```r
+5. 전용 면적 변환하기 
+
+head(apt_price$area, 3)  # 전용 면적 확인
+
+apt_price$area <- apt_price$area %>% as.numeric() %>% round(0)  # 전용 면적 변환
+head(apt_price$area, 3)  # 전용 면적 확인
+
+apt_price$py <- round(((apt_price$price/apt_price$area) * 3.3), 0)  # 평당 가격
+head(apt_price$py, 3)  # 평당 매매가 확인
+```
+- 소수점 자리를 반올림하여 정수로만 나타내고 싶을 때 round() 함수를 사용하며, 여기서 0은 round() 함수의 기본값을 의미한다. 
+```r
+6. 층수 변환하기
+
+min(apt_price$floor)  # 층수 확인
+
+apt_price$floor %>% as.numeric() %>% abs()  # 층수 변환
+min(apt_price$floor)  # 층수 확인
+
+apt_price$cnt <- 1  # 모든 데이터에 숫자 1 할당
+head(apt_price, 2)  # 자료 확인
+```
+- 데이터의 최솟값을 찾고 싶을 때는 min() 함수를 사용한다. 
+- abs() 함수는 절댓값을 구하는 함수로, 음수값을 모두 양수로 바꿔준다.
+
 ## 09월 28일
 > 자료 수집: API 크롤러 만들기
 
