@@ -110,3 +110,8 @@ files <- dir("./02_raw_data")
 library(plyr)
 apt_price <- ldply(as.list(paste0("./02_raw_data/", files)), read.csv)
 tail(apt_price, 2)
+
+# 2단계: RDATA와 CSV 형식으로 저장
+dir.create("./03_integrated")
+save(apt_price, file = "./03_integrated/03_apt_price.rdata")
+write.csv(apt_price, "./03_integrated/03_apt_price.csv")
