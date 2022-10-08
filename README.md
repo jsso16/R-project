@@ -30,7 +30,7 @@ options(warn=-1)
 load("./03_integrated/03_apt_price.rdata")  # 실거래 자료 불러오기
 head(apt_price, 2)  # 자료 확인
 ```
-- 이때, warn=-1을 이용해 중요도가 떨어지는 경고 메세지를 무시한다.
+- 이때, warn=-1을 이용해 중요도가 떨어지는 경고 메세지는 무시한다.
 ```r
 2. 결측값과 공백 제거하기
 
