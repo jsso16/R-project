@@ -1,6 +1,138 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 10월 12일
+> 전처리: 데이터를 알맞게 다듬기
+
+**3. 전처리 데이터 저장하기**
+- 전처리 데이터를 저장하기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. 필요한 칼럼만 추출하기
+
+apt_price <- apt_price %>% select(ymd, ym, year, code, addr_1, apt_nm,
+                                  juso_jibun, price, con_year, area, floor, py, cnt)  # 칼럼 추출
+head(apt_price, 2)  # 자료 확인
+```
+- select() 함수는 데이터에서 필요햔 변수만 추출하고 싶을 때 사용한다.
+```r
+2. 전처리 데이터 저장하기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+dir.create("./04_pre_process")  # 새로운 폴더 생성
+save(apt_price, file = "./04_pre_process/04_pre_process.rdata")  # 저장
+write.csv(apt_price, "./04_pre_process/04_pre_process.csv")
+```
+
+> 카카오맵 API로 지오 코딩하기
+
+**1. 지오 코딩 준비하기**
+- 지오 코딩이란 문자로 된 주소를 위도와 경도라는 숫자로 변환하는 작업이다.
+- 지오 코딩을 하기 위해서는 공간정보산업진흥원에서 제공하는 Geocoder라는 API를 사용하거나 구글 또는 카카오 같이 민간 기업에서 제공하는 API를 사용할 수도 있다.
+- 이 프로젝트에서 사용하는 카카오 API는 REST API 방식으로 카카오맵의 콘텐츠와 데이터를 이용할 수 있도록 로컬 API를 제공한다.
+- 지오 코딩을 준비하기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. 카카오 로컬 API 키 발급받기
+  - 카카오 개발자 사이트에서 [내 애플리케이션] 클릭하기
+  → '애플리케이션 추가하기'를 클릭 후, 앱 이름 및 사업자 이름 작성하기
+  → 저장한 애플리케이션을 클릭하여 REST API 키 확인하기
+```
+- 이때, 카카오 로컬 API 키를 발급받기 위해서는 카카오 개발자 사이트에 접속하여 회원가입 및 로그인을 해야한다.
+- 카카오 개발자 사이트는 다음과 같다.<br>
+  → https://developers.kakao.com/
+```r
+2. 중복된 주소 제거하기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+load("./04_pre_process/04_pre_process.rdata")  # 실거래 자료 불러오기
+apt_juso <- data.frame(apt_price$juso_jibun)  # 주소가 있는 칼럼 추출
+apt_juso <- data.frame(apt_juso[!duplicated(apt_juso), ])  # 고유한 주소만 추출
+head(apt_juso, 2)  # 추출 결과 확인
+```
+- 아파트와 같이 주소가 같은 곳에 거주하는 경우, 중복되는 값들이 많이 존재한다.
+- 따라서 duplicated() 함수를 사용하면 중복되는 값을 제거할 수 있다.
+
+**2. 주소로 좌표를 변환하는 지오 코딩**
+- 지오 코딩을 통해 주소로 좌표를 변환하기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. 지오 코딩하기
+
+add_list <- list()  # 빈 리스트 생성
+cnt <- 0  # 반복문 카운팅 초깃값 설정
+kakao_key = "REST API 키"  # 카카오 REST API 키
+
+library(httr)  # install.packages("httr")
+library(RJSONIO)  # install.packages("RJSONIO")
+library(data.table)  # install.packages("data.table")
+library(dplyr)  # install.packages("dplyr")
+
+for (i in 1:nrow(apt_juso)) {
+  # 예외 처리 구문 시작
+  tryCatch (
+    {
+      # 주소로 좌푯값 요청
+      lon_lat <- GET(url = 'https://dapi.kakao.com/v2/local/search/address.json',
+                     query = list(query = apt_juso[i,]),
+                     add_headers(Authorization = paste0("KakaoAK ", kakao_key)))
+      # 위경도만 추출하여 저장
+      coordxy <- lon_lat %>% content(as = 'text') %>% RJSONIO::fromJSON()
+      # 반복 횟수 카운팅
+      cnt = cnt + 1
+      # 주소, 경도, 위도 정보를 리스트로 저장
+      add_list[[cnt]] <- data.table(apt_juso = apt_juso[i,],
+                                    coord_x = coordxy$documents[[1]]$x,
+                                    coord_y = coordxy$documents[[1]]$y)
+      # 진행 상황 알림 메시지
+      message <- paste0("[", i, "/", nrow(apt_juso), "] 번째 (",
+                        round(i/nrow(apt_juso) * 100, 2), " %) [", apt_juso[i,], "] 지오 코딩 중입니다: X= ", 
+                        add_list[[cnt]]$coord_x, " / Y= ", add_list[[cnt]]$coord_y)
+      cat(message, "\n\n")
+      # 예외 처리 구문 종료
+    }, error = function(e){cat("ERROR: ", conditionMessage(e), "\n")}
+  )
+}
+```
+- 카카오 API 주소를 좌표로 변환할 때, 아래의 4가지 패키지를 사용한다.
+  - httr: 웹(http)으로 자료 요청
+  - rjson: 응답 결과인 JSON형 자료 처리
+  - data.table: 좌표를 테이블로 저장
+  - dplyr: 파이프라인 사용
+- 또한 주소로 좌푯값을 요청하기 위해서는 GET() 함수 안에 서비스 URL(url), 질의(query), 헤더(add_headers()) 이렇게 3가지 요소를 작성해주어야 한다.
+```r
+2. 지오 코딩 결과 적용하기
+
+juso_geocoding <- rbindlist(add_list)  # 리스트 -> 데이터프레임 변환
+juso_geocoding$coord_x <- as.numeric(juso_geocoding$coord_x)  # 좌표 숫자형 변환
+juso_geocoding$coord_y <- as.numeric(juso_geocoding$coord_y)
+juso_geocoding <- na.omit(juso_geocoding)  # 결측치 제거
+dir.create("./05_geocoding")  # 새로운 폴더 생성
+save(juso_geocoding, file="./05_geocoding/05_juso_geocoding.rdata")  # 저장
+write.csv(juso_geocoding, "./05_geocoding/05_juso_geocoding.csv")
+```
+
+> 지오 데이터프레임 만들기
+
+**1. 좌표계와 지오 데이터 포맷**
+- 좌표계란 불규칙한 타원체인 지구의 실체 좌푯값을 표현하기 위해서 투영 과정을 거쳐 보정해야 하는데, 이러한 보정의 기준을 의미한다.
+- 국내에서는 국토지리정보원 표준 좌표계인 GRS80을 많이 사용하며, 국제적으로는 GPS의 참조 좌표계이자 구글이나 오픈 스트리트맵 같은 글로벌 지도 서비스에 사용되는 WGS84가 있다.
+- 이러한 좌표계를 표준화하고자 부여한 코드가 바로 EPSG이다.
+<img width="508" alt="좌표계 투영" src="https://user-images.githubusercontent.com/62285642/195973628-c5d42c0a-bb23-4fa2-8ada-2654de4734f5.png">
+
+- R의 데이터프레임은 다양한 유형의 정보를 통합하여 저장할 수 있는 포맷을 지니고 있지만, 기하학 특성의 위치 정보를 저장하기에는 적합한 포맷이 아니어서 공간 분석에는 한계가 있다.
+- 이러한 한계를 보완하기 위해 지오 데이터 포맷으로 sp 패키지가 공개되었다.
+- 2005년 공개된 sp 패키지는 R에서 점, 선, 면 같은 공간 정보를 처리할 목적으로 만든 데이터 포맷으로, 테두리 상자나 좌표계 같은 다양한 정보들도 함께 저장할 수 있다는 점에서 공간 분석의 새로운 길을 열어주었다.
+- 그러나 데이터 일부를 편집하거나 수정하는 것은 어렵다는 한계가 있었다.
+- 따라서 이러한 sp의 한계를 극복하고자 2016년 sf 패키지가 공개되었다.
+<img width="733" alt="sf 패키지 자료의 구성" src="https://user-images.githubusercontent.com/62285642/195973674-7fa86f09-4830-46c4-b092-4369db856bfb.png">
+
+- sf는 sp 패키지가 가지고 있던 기능과 속성을 그대로 이어받지만, 기존의 데이터프레임에 공간 속성을 가진 칼럼을 추가함으로써 공간 데이터를 일반 데이터프레임과 비슷하게 편집하거나 수정할 수 있게 하였다.
+- 따라서 최근에는 sf 패키지 사용자가 꾸준히 증가하고 있지만 아직까지 관련 자료나 레퍼런스는 부족한 상황이며, 아직까지는 공간 도형을 다루기에는 sp가 빠르다는 평가가 많아서 대부분 sp와 sf를 함께 사용한다.
+
+**+) 지오 데이터 포맷 변환**
+- sp 패키지는 데이터 전체의 기하학 정보를 처리할 때 유리하다.
+- sf 패키지는 부분적인 바이너리 정보 처리가 빠르다.
+- 이처럼 sp와 sf 패키지의 장단점이 다르기 때문에 어떠한 것이 더 좋은지 판단할 수 없으므로, 상황에 따라 아래와 같이 sp와 sf 패키지를 서로 변환하여 사용하는 것이 좋다.
+<img width="458" alt="sp와 sf 변환" src="https://user-images.githubusercontent.com/62285642/195974326-5b1e4161-7f69-4ba8-a066-f9aae1a306dd.png">
+
 ## 10월 05일
 > 자료 수집: API 크롤러 만들기
 
