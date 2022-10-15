@@ -80,3 +80,16 @@ min(apt_price$floor)
 # 카운트 변수 추가
 apt_price$cnt <- 1
 head(apt_price, 2)
+
+#---
+
+# 1단계: 칼럼 추출
+apt_price <- apt_price %>% select(ymd, ym, year, code, addr_1, apt_nm,
+                                  juso_jibun, price, con_year, area, floor, py, cnt)
+head(apt_price, 2)
+
+# 2단계: 칼럼 추출 및 저장
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+dir.create("./04_pre_process")
+save(apt_price, file = "./04_pre_process/04_pre_process.rdata")
+write.csv(apt_price, "./04_pre_process/04_pre_process.csv")
