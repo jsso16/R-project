@@ -13,7 +13,7 @@ apt_price <- apt_price %>% select(ymd, ym, year, code, addr_1, apt_nm,
                                   juso_jibun, price, con_year, area, floor, py, cnt)  # 칼럼 추출
 head(apt_price, 2)  # 자료 확인
 ```
-- select() 함수는 데이터에서 필요햔 변수만 추출하고 싶을 때 사용한다.
+- select() 함수는 데이터에서 필요한 변수만 추출하고 싶을 때 사용한다.
 ```r
 2. 전처리 데이터 저장하기
 
@@ -38,7 +38,7 @@ write.csv(apt_price, "./04_pre_process/04_pre_process.csv")
 ```
 - 이때, 카카오 로컬 API 키를 발급받기 위해서는 카카오 개발자 사이트에 접속하여 회원가입 및 로그인을 해야한다.
 - 카카오 개발자 사이트는 다음과 같다.<br>
-  → https://developers.kakao.com/
+  → https://developers.kakao.com
 ```r
 2. 중복된 주소 제거하기
 
@@ -96,7 +96,7 @@ for (i in 1:nrow(apt_juso)) {
   - rjson: 응답 결과인 JSON형 자료 처리
   - data.table: 좌표를 테이블로 저장
   - dplyr: 파이프라인 사용
-- 또한 주소로 좌푯값을 요청하기 위해서는 GET() 함수 안에 서비스 URL(url), 질의(query), 헤더(add_headers()) 이렇게 3가지 요소를 작성해주어야 한다.
+- 또한 주소로 좌푯값을 요청하기 위해서는 GET() 함수 안에 서비스 URL, 질의, 헤더 이렇게 3가지 요소를 작성해주어야 한다.
 ```r
 2. 지오 코딩 결과 적용하기
 
@@ -112,7 +112,7 @@ write.csv(juso_geocoding, "./05_geocoding/05_juso_geocoding.csv")
 > 지오 데이터프레임 만들기
 
 **1. 좌표계와 지오 데이터 포맷**
-- 좌표계란 불규칙한 타원체인 지구의 실체 좌푯값을 표현하기 위해서 투영 과정을 거쳐 보정해야 하는데, 이러한 보정의 기준을 의미한다.
+- 좌표계란 불규칙한 타원체인 지구의 실체 좌푯값을 표현하기 위해서 투영 과정을 거쳐 보정해야하는데, 이러한 보정의 기준을 의미한다.
 - 국내에서는 국토지리정보원 표준 좌표계인 GRS80을 많이 사용하며, 국제적으로는 GPS의 참조 좌표계이자 구글이나 오픈 스트리트맵 같은 글로벌 지도 서비스에 사용되는 WGS84가 있다.
 - 이러한 좌표계를 표준화하고자 부여한 코드가 바로 EPSG이다.
 <img width="508" alt="좌표계 투영" src="https://user-images.githubusercontent.com/62285642/195973628-c5d42c0a-bb23-4fa2-8ada-2654de4734f5.png">
