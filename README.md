@@ -1,6 +1,62 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 10월 26일
+> 지오 데이터프레임 만들기
+
+**2. 주소와 좌표 결합하기**
+- 주소와 좌표를 결합하기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. 데이터 불러오기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+load("./04_pre_process/04_pre_process.rdata")  # 주소 불러오기
+load("./05_geocoding/05_juso_geocoding.rdata")  # 좌표 불러오기
+```
+- 2개 이상의 데이터프레임을 불러올 때, 서로 다른 데이터프레임 안에 공통된 정보가 존재하는 경우가 있다.
+```r
+2. 주소와 좌표 결합하기
+
+library(dplyr)  # install.packages("dplyr")
+apt_price <- left_join(apt_price, juso_geocoding, 
+                       by = c("juso_jibun" = "apt_juso"))  # 결합
+apt_price <- na.omit(apt_price)  # 결측치 제거
+```
+- 이때, 위 코드처럼 left_join() 함수를 사용하면 이를 하나의 데이터프레임으로 결합할 수 있다.
+
+**3. 지오 데이터프레임 만들기**
+- 지오 데이터프레임을 만들기 위해서는 총 3가지 단계를 시행해야 한다.
+```r
+1. 지오 데이터프레임 생성하기
+
+library(sp)  # install.packages("sp")
+coordinates(apt_price) <- ~coord_x + coord_y  # 좌푯값 할당
+proj4string(apt_price) <- "+proj=longlat +datum=WGS84 +no_defs"  # 좌표계(CRS) 정의
+library(sf)  # install.packages("sf")
+apt_price <- st_as_sf(apt_price)  # sp형 => sf형 변환
+```
+- sp 패키지를 통해 불러온 coordinates() 함수는 좌표값을 할당하여 x축과 y축을 서로 바꾸거나 축의 값을 변환하는 등의 좌표 체계 변환 기능을 제공한다.
+- 해당 좌표가 어떠한 좌표계를 참조하는지 정의하여 좌표값을 변형할 때에는 proj4string() 함수를 사용한다.
+- st_as_sf() 함수는 sp형 데이터프레임을 sf형으로 변환하여 공간 데이터를 더욱 편리하게 변환할 수 있다.
+```r
+2. 지오 데이터프레임 시각화
+
+plot(apt_price$geometry, axes = T, pch = 1)  # 플롯 그리기
+library(leaflet)  # install.packages("leaflet")  # 지도 그리기 라이브러리
+leaflet() %>% addTiles() %>% 
+  addCircleMarkers(data=apt_price[1:1000,], label=~apt_nm)  # 1,000개만 그리기
+```
+- plot() 함수를 이용하면 데이터프레임을 간단하게 시각화할 수 있다.
+- 빈 캔버스를 그린 다음, addTiles() 함수로 기본 지도인 오픈스트리트맵을 불러오기 위해서는 leaflet() 함수를 사용해야 한다.
+- addCircleMarkers() 함수는 데이터가 가리키는 위치에 동그란 마커와 라벨을 표시한다.
+```r
+3. 지오 데이터프레임 저장하기
+
+dir.create("./06_geodataframe")  # 새로운 폴더 생성
+save(apt_price, file="./06_geodataframe/06_apt_price.rdata")  # radata 저장
+write.csv(apt_price, "./06_geodataframe/06_apt_price.csv")  # csv 저장
+```
+
 ## 10월 12일
 > 전처리: 데이터를 알맞게 다듬기
 
@@ -96,7 +152,7 @@ for (i in 1:nrow(apt_juso)) {
   - rjson: 응답 결과인 JSON형 자료 처리
   - data.table: 좌표를 테이블로 저장
   - dplyr: 파이프라인 사용
-- 또한 주소로 좌푯값을 요청하기 위해서는 GET() 함수 안에 서비스 URL, 질의, 헤더 이렇게 3가지 요소를 작성해주어야 한다.
+- 또한 주소로 좌푯값을 요청하기 위해서는 GET() 함수 안에 서비스 URL, 질의, 헤더 이렇게 3가지 요소를 함께 작성해주어야 한다.
 ```r
 2. 지오 코딩 결과 적용하기
 
@@ -114,7 +170,7 @@ write.csv(juso_geocoding, "./05_geocoding/05_juso_geocoding.csv")
 **1. 좌표계와 지오 데이터 포맷**
 - 좌표계란 불규칙한 타원체인 지구의 실체 좌푯값을 표현하기 위해서 투영 과정을 거쳐 보정해야하는데, 이러한 보정의 기준을 의미한다.
 - 국내에서는 국토지리정보원 표준 좌표계인 GRS80을 많이 사용하며, 국제적으로는 GPS의 참조 좌표계이자 구글이나 오픈 스트리트맵 같은 글로벌 지도 서비스에 사용되는 WGS84가 있다.
-- 이러한 좌표계를 표준화하고자 부여한 코드가 바로 EPSG이다.
+- 이러한 좌표계를 표준화하고자 부여한 코드가 바로 EPSG(European Petroleum Survey Group)이다.
 <img width="508" alt="좌표계 투영" src="https://user-images.githubusercontent.com/62285642/195973628-c5d42c0a-bb23-4fa2-8ada-2654de4734f5.png">
 
 - R의 데이터프레임은 다양한 유형의 정보를 통합하여 저장할 수 있는 포맷을 지니고 있지만, 기하학 특성의 위치 정보를 저장하기에는 적합한 포맷이 아니어서 공간 분석에는 한계가 있다.
