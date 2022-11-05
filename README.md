@@ -89,7 +89,7 @@ plot(raster_high)
 - 또한 시그마는 데이터의 분산(퍼져있는 정도)을 나타내는 것으로 대역폭 파라미터라고도 하는데, 시그마는 아래 사진과 같이 변화에 따라 커널 밀도 함수 형태가 달라지기 때문에 최적값을 찾기가 어렵다.
 <img width="218" alt="시그마 변화에 따른 커널 밀도 함수 형태" src="https://user-images.githubusercontent.com/62285642/200105798-5d5ac9c0-a87d-49fe-a284-5d47fc7b7985.png">
 
-- 따라서 이러한 불편을 최소화하고자 r의 공간 통계 라이브러리인 spatstat 패키지는 bw.diggle(), bw.ppl(), bw.scot() 3가지 옵션을 제공하게 되었다.
+- 따라서 이러한 불편을 최소화하고자 r의 공간 통계 라이브러리인 spatstat 패키지는 bw.diggle(), bw.ppl(), bw.scot()이라는 3가지 옵션을 제공하게 되었다.
 - 여기서 제일 널리 사용되는 커널 형태 옵션은 gaussian이며, 시그마 옵션은 bw.diggle()이다.
 
 ## 10월 26일
