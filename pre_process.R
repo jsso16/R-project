@@ -46,9 +46,9 @@ apt_price$apt_nm <- gsub("\\(.*","", apt_price$apt_nm)
 head(apt_price$apt_nm, 30)
 
 # 주소 조합
-loc <- read.csv("/Users/jeonsojin/R/R-project/sigun_code.csv")
+loc <- read.csv("./sigun_code.csv")
 apt_price <- merge(apt_price, loc, by = 'code') 
-apt_price$juso_jibun <- paste0(apt_price$addr_2, apt_price$dong, " ",
+apt_price$juso_jibun <- paste0(apt_price$addr_2, " ", apt_price$dong, " ",
                                apt_price$jibun, " ", apt_price$apt_nm)
 head(apt_price, 2)
 
@@ -74,7 +74,7 @@ head(apt_price$py, 3)
 min(apt_price$floor)
 
 # 층수 변환(문자 → 숫자)
-apt_price$floor %>% as.numeric() %>% abs()
+apt_price$floor <- apt_price$floor %>% as.numeric() %>% abs()
 min(apt_price$floor)
 
 # 카운트 변수 추가
