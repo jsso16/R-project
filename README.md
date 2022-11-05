@@ -1,6 +1,97 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 11월 02일
+> 분석 주제를 지도로 시각화하기
+
+**1. 어느 지역이 제일 비쌀까?**
+- 가장 가격이 높은 지역을 찾기 위한 지역별 평균 가격을 구하려면 먼저 그리드별 평균 가격을 계산해야 한다.
+- 그리드란 격자 형식의 무늬를 말하는데, 그리드별로 분할된 정보를 저장하기 위해서는 셰이프 파일을 사용하여야 한다.
+- 셰이프 파일이란 지리 공간 분석에서 널리 사용하는 표준화된 형식으로서 지리 현상을 기하학적 위치와 속성 정보로 동시에 저장한 데이터 형식을 의미한다.
+- 이렇게 지역별 평균 가격을 구하고, 가장 가격이 높은 지역을 찾기 위해서는 총 8가지 단계를 시행해야 한다.
+```r
+1. 지역별 평균 가격 구하기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))  # 작업 폴더 설정
+load("./06_geodataframe/06_apt_price.rdata")  # 실거래 자료 불러오기
+library(sf)  # install.packages("sf")
+grid <- st_read("./01_code/sigun_grid/seoul.shp")  # 서울시 1km 그리드 불러오기
+apt_price <- st_join(apt_price, grid, join = st_intersects)  # 실거래 + 그리드 결합
+head(apt_price, 2)
+
+kde_high <- aggregate(apt_price$py, by=list(apt_price$ID), mean)  # 그리드별 평균 가격
+colnames(kde_high) <- c("ID", "avg_price")  # 칼럼명 변경
+head(kde_high, 2)  # 평균가 확인
+```
+- st_join() 함수는 속성 테이블을 결합해주는 함수로, 특정 정보가 어느 그리드에 속해있는지 파악할 수 있다.
+- aggregate()는 데이터의 특정 컬럼을 기준으로 그룹화하고, 이에 대한 통계를 구해주는 함수이다.
+```r
+2. 평균 가격 정보 표시하기
+
+kde_high <- merge(grid, kde_high, by="ID")  # ID 기준으로 결합
+library(ggplot2)  # install.packages("ggplot2")
+library(dplyr)  # install.packages("dplyr")
+kde_high %>% ggplot(aes(fill = avg_price)) +  # 그래프 시각화
+                    geom_sf() +
+                    scale_fill_gradient(low = "white", high = "red")
+```
+- 이때 두 자료에 id 정보가 공통으로 포함되어 있으므로, 이를 기준으로 merge() 함수를 이용해 그리드 지도 데이터와 공간 결합할 수 있다.
+- 다음으로 데이터가 집중된 곳을 찾고싶을 때는 커널 밀도 추정을 이용한다.
+- 커널 밀도 추정(KDE: Kernel Density Estimation)이란 커널 함수로 변수의 밀도를 추정하는 방법의 하나이다.
+```r
+3. 지도 경계 그리기
+
+library(sp) # install.packages("sp")
+kde_high <- as(st_geometry(kde_high), "Spatial")  # sf형 => sp형 변환
+x <- coordinates(kde_high_sp)[,1]  # 그리드 중심 x, y 좌표 추출
+y <- coordinates(kde_high_sp)[,2]
+
+l1 <- bbox(kde_high_sp)[1, 1] - (bbox(kde_high_sp)[1, 1] * 0.0001)
+l2 <- bbox(kde_high_sp)[1, 2] + (bbox(kde_high_sp)[1, 2] * 0.0001)
+l3 <- bbox(kde_high_sp)[2, 1] - (bbox(kde_high_sp)[2, 1] * 0.0001)
+l4 <- bbox(kde_high_sp)[2, 2] + (bbox(kde_high_sp)[2, 2] * 0.0001)
+
+library(spatstat)  # install.packages("spatstat")
+win <- owin(xrange=c(l1, l2), yrange=c(l3, l4))
+plot(win)  # 지도 경계선 확인
+rm(list = c("kde_high_sp", "apt_price", "l1", "l2", "l3", "l4"))  # 변수 정리
+```
+- owin()은 2차원 평면에서 관찰창, 즉 경계선을 생성해주는 함수이다.
+- 입력한 변수를 정리하고 싶을 때는 rm() 함수를 이용하여 저장되어있는 변수를 제거할 수 있다.
+```r
+4. 밀도 그래프 표시하기
+
+p <- ppp(x, y, window = win)  # 경계선 위에 좌푯값 포인트 생성
+d <- density.ppp(p, weights = kde_high$avg_price,  # 커널 밀도 함수로 변환
+                 sigma = bw.diggle(p),
+                 kernel = 'gaussian')
+plot(d)  # 밀도 그래프 확인
+rm(list = c("x", "y", "win", "p"))  # 변수 정리
+```
+- ppp() 함수는 x와 y에 따른 좌푯값을 포인트로 나타내준다.
+- 또한 density.ppp() 함수는 ppp() 함수를 이용해 생성한 포인트를 연속된 곡선을 가지는 커널로 변환해서 그래프를 그려준다.
+- 이때, 빅데이터를 잘 다루려면 노이즈를 최소화하고 의미있는 신호를 찾아내는 것이 중요하다.
+```r
+5. 래스터 이미지로 변환하기
+
+d[d < quantile(d)[4] + (quantile(d)[4] * 0.1)] <- NA  # 노이즈 제거
+library(raster)  # install.packages("raster")
+raster_high <- raster(d)  # 래스터 변환
+plot(raster_high)
+```
+- quntile()은 전체 데이터를 순서대로 정렬할 때, 0%, 25%, 50%, 75%, 100%가 되는 지점을 알려주는 함수이다. 
+- 따라서 이를 이용해 노이즈를 제거한다면 더욱 의미있는 데이터를 얻을 수 있다.
+- raster() 함수는 포인트 데이터를 래스터 이미지로 변환해준다.
+
+**+) 커널 밀도 추정 시 기억해야 할 2가지 옵션**
+- 커널 밀도를 추정하기 위해서는 커널 함수(kernel function)의 종류와 시그마(sigma) 이렇게 2가지 개념을 이해해야 한다.
+- 커널 함수의 종류는 데이터가 분포하는 대략적인 형태를 지칭하는 것으로 gaussian, epanechnikov, quartic 등이 있다.
+- 또한 시그마는 데이터의 분산(퍼져있는 정도)을 나타내는 것으로 대역폭 파라미터라고도 하는데, 시그마는 아래 사진과 같이 변화에 따라 커널 밀도 함수 형태가 달라지기 때문에 최적값을 찾기가 어렵다.
+<img width="218" alt="시그마 변화에 따른 커널 밀도 함수 형태" src="https://user-images.githubusercontent.com/62285642/200105798-5d5ac9c0-a87d-49fe-a284-5d47fc7b7985.png">
+
+- 따라서 이러한 불편을 최소화하고자 r의 공간 통계 라이브러리인 spatstat 패키지는 bw.diggle(), bw.ppl(), bw.scot() 3가지 옵션을 제공하게 되었다.
+- 여기서 제일 널리 사용되는 커널 형태 옵션은 gaussian이며, 시그마 옵션은 bw.diggle()이다.
+
 ## 10월 26일
 > 지오 데이터프레임 만들기
 
