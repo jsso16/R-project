@@ -53,3 +53,26 @@ d[d < quantile(d)[4] + (quantile(d)[4] * 0.1)] <- NA
 library(raster)
 raster_high <- raster(d)
 plot(raster_high)
+
+# 6단계: 서울시 외곽선 자르기
+bnd <- st_read("./01_code/sigun_bnd/seoul.shp")
+raster_high <- crop(raster_high, extent(bnd))
+crs(raster_high) <- sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+plot(raster_high)
+plot(bnd, col = NA, border = "red", add = TRUE)
+
+# 7단계: 지도 위에 래스터 이미지 올리기
+# install.packages("rgdal")
+library(rgdal)
+library(leaflet)
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addPolygons(data = bnd, weight = 3, color = "red", fill = NA) %>%
+  addRasterImage(raster_high,
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"),
+                                       values(raster_high), na.color = "transparent"), opacity = 0.4)
+
+# 8단계: 저장하기
+dir.create("07_map")
+save(raster_high, file="./07_map/07_kde_high.rdata")
+rm(list = ls())
