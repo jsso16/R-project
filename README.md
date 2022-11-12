@@ -1,6 +1,203 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 11월 09일
+> 분석 주제를 지도로 시각화하기
+
+**1. 어느 지역이 제일 비쌀까?**
+- 지난 5단계에 이어 가장 가격이 높은 지역을 찾기 위해서는 남은 3가지 단계를 시행해야 한다.
+```r
+6. 불필요한 부분 자르기
+
+bnd <- st_read("./01_code/sigun_bnd/seoul.shp")  # 서울시 경계선 불러오기
+raster_high <- crop(raster_high, extent(bnd))  # 외곽선 자르기
+crs(raster_high) <- sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")  # 좌표계 정의
+plot(raster_high)  # 지도 확인
+plot(bnd, col = NA, border = "red", add = TRUE)
+```
+- st_read()는 셰이프 파일을 불러오는 함수이다.
+- crop() 함수를 이용하여 외각선을 기준으로 래스터 이미지를 잘라낼 수 있다.
+```r
+7. 지도 그리기
+
+library(rgdal)  # install.packages("rgdal")
+library(leaflet)
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%  # 기본 지도 불러오기
+  addPolygons(data = bnd, weight = 3, color = "red", fill = NA) %>%  # 서울시 경계선 불러오기
+  addRasterImage(raster_high,  # 래스터 이미지 불러오기
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"),
+                                     values(raster_high), na.color = "transparent"), opacity = 0.4)
+```
+- rgdal 패키지의 RDGAL(R Geospatial Data Abstraction Library)은 지리 공간 정보를 가지는 래스터 데이터 처리 라이브러리이다. 
+- addProviderTiles() 함수는 옵션으로 지도의 기본 테마를 지정할 수 있다.
+- addPolygons()는 외각선을 불러오는 함수로, 외각선의 폭과 색상을 지정할 수 있다.
+- addRasterImage() 함수를 이용하여 지도 위에 래스터 이미지를 올릴 수 있다.
+```r
+8. 평균 가격 정보 표시하기
+
+dir.create("07_map")  # 새로운 폴더 생성
+save(raster_high, file="./07_map/07_kde_high.rdata")  # 최고가 래스터 저장
+rm(list = ls())  # 메모리 정리
+```
+
+**2. 요즘 뜨는 지역은 어디일까?**
+- 최근 급등한 지역을 찾기 위해서는 일정 기간 동안 가장 많이 오른 지역을 특정하여야 한다.
+- 이는 똑같은 그리드를 대상으로 두 시점 사이의 가격 변화를 비교하여 단순히 특정 그리드의 평균 가격을 측정하는 방식보다 복잡하다.
+- 따라서 일정 기간 동안 가장 많이 오른 지역을 특정하기 위해서는 9가지 단계를 시행해야 한다.
+```r
+1. 데이터 준비하기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))  # 작업 폴더 설정
+load("./06_geodataframe/06_apt_price.rdata")  # 실거래 불러오기
+grid <- st_read("./01_code/sigun_grid/seoul.shp")  # 서울시 1km 그리드 불러오기
+apt_price <- st_join(apt_price, grid, join = st_intersects)  # 실거래 + 그리드 결합
+head(apt_price, 2)
+```
+- 이전의 지역별 평균 가격을 구했던 것과 같이, 일정 기간 동안 가장 많이 오른 지역을 특정하기 위해서도 st_join() 함수를 이용해 각각의 속성 테이블을 결합해주어야 한다.
+```r
+2. 이전/이후 데이터 세트 만들기
+
+kde_before <- subset(apt_price, ymd < "2021-07-01")  # 이전 데이터 필터링
+kde_before <- aggregate(kde_before$py, by=list(kde_before$ID), mean)  # 평균 가격
+colnames(kde_before) <- c("ID", "before")  # 칼럼명 변경
+
+kde_after <- subset(apt_price, ymd > "2021-07-01")  # 이후 데이터 필터링
+kde_after <- aggregate(kde_after$py, by=list(kde_after$ID), mean)  # 평균 가격
+colnames(kde_after) <- c("ID", "after")  # 칼럼명 변경
+
+kde_diff <- merge(kde_before, kde_after, by="ID")  # 이전 + 이후 데이터 결합
+kde_diff$diff <- round((((kde_diff$after - kde_diff$before) / kde_diff$before) * 100), 0)  # 변화율 계산
+
+head(kde_diff, 2)  # 변화율 확인
+```
+- subset()은 선택한 변수와 조건에 맞는 데이터를 추출해주는 함수로, 이를 이용해 원하는 데이터를 필터링할 수 있다.
+- colnames() 함수를 이용하면 칼럼명(열 이름)을 변경할 수 있다.
+```r
+3. 가격이 오른 지역 찾기
+
+library(sf)  # install.packages("sf")
+kde_diff <- kde_diff[kde_diff$diff > 0,]  # 상승 지역만 추출
+kde_hot <- merge(grid, kde_diff, by="ID")  # 그리드에 상승 지역 결합
+library(ggplot2)  # install.packages("ggplot2")
+library(dplyr)  # install.packages("dplyr")
+kde_hot %>%  # 그래프 시각화
+  ggplot(aes(fill = diff)) + 
+  geom_sf() +
+  scale_fill_gradient(low = "white", high = "red")
+```
+- ggplot을 이용해서 그래프를 시각화하면 아래 사진과 같이 가격이 높은 지역은 붉은색으로, 낮은 지역은 흰색으로 표시되어 나타난다.
+<img width="566" alt="ggplot을 이용한 그래프 시각화" src="https://user-images.githubusercontent.com/62285642/201458976-229b278d-c8ef-4bbd-afab-0983f1a867ac.png">
+
+```r
+4 ~ 7. 기타 지도 작업
+  - 가장 비싼 지역을 찾는 작업의 3단계부터 6단계까지의 작업을 그대로 복사하여 변수명을 kde_high에서 kde_hot으로 변경하기
+```
+- 지도 경계, 밀도 그래프, 래스터 이미지, 불필요한 부분 자르기 등의 작업을 진행하여야 하는데, 이는 이전에 가장 비싼 지역을 찾는 작업의 3단계부터 6단계까지의 작업과 동일하다.
+- 자세한 코드는 [kde_high.R](https://github.com/jsso16/R-project/blob/main/kde_hot.R)에서 확인할 수 있다.
+```r
+8. 지도 그리기
+
+library(leaflet)  # install.packages("leaflet")
+leaflet() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%  # 기본 지도 불러오기
+  addPolygons(data = bnd, weight = 3, color = "red", fill = NA) %>%  # 서울시 경계선 불러오기
+  addRasterImage(raster_hot,  # 래스터 이미지 불러오기
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"),
+                                       values(raster_hot), na.color = "transparent"), opacity = 0.4)
+```
+- leaflet()을 이용해 지도를 그려보면 아래 사진과 같이 기본 지도 위에 경계선과 래스터 이미지가 나타난다.
+<img width="568" alt=" leaflet() 함수를 이용한 지도" src="https://user-images.githubusercontent.com/62285642/201459040-14b3cb30-8568-4c94-ba5d-b538b45ed622.png">
+
+```r
+9. 평균 가격 정보율 정보 저장하기
+
+save(raster_hot, file="./07_map/07_kde_hot.rdata")  # 급등지 래스터 저장
+rm(list = ls())  # 메모리 정리
+```
+
+**3. 우리 동네가 옆 동네보다 비쌀까?**
+- 특정 지역의 평균 가격을 주변 지역과 비교해보기 위해서는 평당 실거래가 평균을 직접 지도 위에 표시해야 한다.
+- 그러나 제한된 영역에 많은 데이터를 배열하면 정보를 명확하게 전달할 수 없으므로, 마커 클러스터링을 이용하여 지도에 표시할 데이터를 적절하게 조절해주어야 한다.
+- 마커 클러스터링이란 지도에 표시되는 마커가 너무 많을 때, 특정한 기준으로 마커들을 하나의 무리(cluster)로 묶어주는 방법이다.
+- 이렇게 특정 지역의 평균 가격을 주변 지역과 비교해보기 위해서는 총 3가지 단계를 시행해야 한다.
+```r
+1. 데이터 준비하기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))  # 작업 폴더 설정
+load("./06_geodataframe/06_apt_price.rdata")  # 실거래 자료 불러오기
+load("./07_map/07_kde_high.rdata")  # 최고가 래스터 이미지
+load("./07_map/07_kde_hot.rdata") # 급등지 래스터 이미지
+
+library(sf)  # install.packages("sf")
+bnd <- st_read("./01_code/sigun_bnd/seoul.shp")  # 서울시 경계선
+grid <- st_read("./01_code/sigun_grid/seoul.shp")  # 서울시 그리드 파일
+```
+- 앞서 진행했던 최근 급등 지역을 찾는 작업과 동일하게 load() 함수와 st_read() 함수를 이용하여 필요한 데이터와 셰이프 파일을 불러와야 한다.
+```r
+2. 마커 클러스터링 옵션 설정하기
+
+pnct_10 <- as.numeric(quantile(apt_price$py, probs = seq(.1, .9, by = .1))[1])  # 이상치 설정(하위 10% 지점)
+pnct_90 <- as.numeric(quantile(apt_price$py, probs = seq(.1, .9, by = .1))[9])  # 이상치 설정(상위 90% 지점)
+load("./01_code/circle_marker/circle_marker.rdata")  # 마커 클러스터링 함수 등록
+circle.colors <- sample(x=c("red", "green", "blue"), size=1000, replace=TRUE)  # 마커 클러스터링 색상 설정: 상, 중, 하
+```
+- 지도 위에 마커 클러스터링으로 데이터를 표현하기 위해서는 load() 함수를 이용해 circle_marker.rdata 파일을 불러와야 한다.
+- 이 파일을 불러오면 avg.fomula라는 마커 클러스터링용 자바스크립트 실행되면서 지도에 마커 클러스터링이 표시된다.
+```r
+3. 마커 클러스터링 시각화하기
+
+library(purrr)  # install.packages("purrr")
+leaflet() %>%
+  addTiles() %>%  # 오픈 스트리트 맵 불러오기
+  addPolygons(data = bnd, weight = 3, color = "red", fill = NA) %>%  # 서울시 경계선 불러오기
+  addRasterImage(raster_high,  # 최고가 래스터 이미지 불러오기
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"), values(raster_high), 
+                                       na.color = "transparent"), opacity = 0.4, group = "2021 최고가") %>%
+  addRasterImage(raster_hot,  # 급등지 래스터 이미지 불러오기
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"), values(raster_hot), 
+                                       na.color = "transparent"), opacity = 0.4, group = "2021 급등지") %>%
+  addLayersControl(baseGroups = c("2021 최고가", "2021 급등지"),  # 최고가/급등지 옵션 추가하기
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  addCircleMarkers(data = apt_price, lng = unlist(map(apt_price$geometry, 1)),  # 마커 클러스터링 불러오기
+                   lat = unlist(map(apt_price$geometry, 2)), radius = 10, stroke = FALSE,
+                   fillOpacity = 0.6, fillColor = circle.colors, weight = apt_price$py,
+                   clusterOptions = markerClusterOptions(iconCreateFunction=JS(avg.formula)))
+rm(list = ls())  # 메모리 정리하기
+```
+- Mac에서는 purrr 라이브러리 설치 시 '컴파일이 요구되는 패키지를 소스로부터 바로 설치하기를 원하나요?'라는 메세지가 나올 수 있는데, 이때 'no'를 입력하면 오류없이 설치할 수 있다.
+- 마커 클러스터링을 시각화하면 아래 사진과 같이 경계선과 최고가 또는 급등지 래스터 이미지가 표시된 지도 위에 마커 클러스터링이 표시된 것을 확인할 수 있다.
+<img width="568" alt="마커 클러스터링 시각화" src="https://user-images.githubusercontent.com/62285642/201459089-6077a01b-1e92-42f0-9eff-70ebe1169e9d.png">
+
+> 통계 분석과 시각화
+
+**1. 관심 지역 데이터만 추출하기**
+- 관심있는 지역 데이터를 추출하기 위해서는 관심이 있는 아파트들이 포함된 그리드를 찾아내야 한다.
+- 여기서 관심 지역이란 주목해서 분석하고 싶은 동네를 의미한다.
+- 이러한 관심 지역 데이터를 추출하기 위해서는 총 3가지 단계를 시행해야 한다.
+```r
+1. 데이터 준비하기
+
+library(sf)  # install.packages("sf")
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+load("./06_geodataframe/06_apt_price.rdata")  # 실거래 데이터
+load("./07_map/07_kde_high.rdata")  # 최고가 래스터 이미지
+grid <- st_read("./01_code/sigun_grid/seoul.shp")  # 서울시 그리드
+```
+- 관심 지역을 찾기 위해서는 먼저 가장 비싼 지역을 파악해야 하는데, 이를 위해서는 Thematic Map을 사용하여야 한다.
+- Thematic Map이란 지리적 영역에서 인구 밀도, 강수량 등과 같은 특정 주제의 지리적 패턴을 나타내는 지도이다.
+```r
+2. 서울에서 가장 비싼 지역 찾기
+
+library(tmap)  # install.packages("tmap")
+tmap_mode("view")
+tm_shape(grid) + tm_borders() + tm_text("ID", col = "red") +  # 그리드 그리기
+  tm_shape(raster_high) +  # 래스터 이미지 그리기
+  tm_raster(palette = c("blue", "green", "yellow", "red"), alpha = .4) +  # 래스터 이미지 색상 패턴 설정
+  tm_basemap(server = c("openStreetMap"))  # 기본 지도 설정
+```
+- 지도를 시각화하면 가장 비싼 지역이 붉은색으로 나타나면서 해당 지역의 이름과 그리드 ID를 확인할 수 있다.
+
 ## 11월 02일
 > 분석 주제를 지도로 시각화하기
 
@@ -86,7 +283,7 @@ plot(raster_high)
 **+) 커널 밀도 추정 시 기억해야 할 2가지 옵션**
 - 커널 밀도를 추정하기 위해서는 커널 함수(kernel function)의 종류와 시그마(sigma) 이렇게 2가지 개념을 이해해야 한다.
 - 커널 함수의 종류는 데이터가 분포하는 대략적인 형태를 지칭하는 것으로 gaussian, epanechnikov, quartic 등이 있다.
-- 또한 시그마는 데이터의 분산(퍼져있는 정도)을 나타내는 것으로 대역폭 파라미터라고도 하는데, 시그마는 아래 사진과 같이 변화에 따라 커널 밀도 함수 형태가 달라지기 때문에 최적값을 찾기가 어렵다.
+- 또한 시그마는 데이터의 분산(퍼져있는 정도)을 나타내는 것으로 대역폭 파라미터라고도 하는데, 시그마는 아래 사진과 같이 변화에 따라 커널 밀도 함수의 형태가 달라지기 때문에 최적값을 찾기가 어렵다.
 <img width="218" alt="시그마 변화에 따른 커널 밀도 함수 형태" src="https://user-images.githubusercontent.com/62285642/200105798-5d5ac9c0-a87d-49fe-a284-5d47fc7b7985.png">
 
 - 따라서 이러한 불편을 최소화하고자 r의 공간 통계 라이브러리인 spatstat 패키지는 bw.diggle(), bw.ppl(), bw.scot()이라는 3가지 옵션을 제공하게 되었다.
