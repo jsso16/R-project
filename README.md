@@ -1,6 +1,244 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 11월 16일
+> 통계 분석과 시각화
+
+**1. 관심 지역 데이터만 추출하기**
+- 지난 2단계에 이어 관심 지역 데이터만 추출하기 위해서는 남은 1단계를 시행해야 한다.
+- 이때, 통계 차트를 더욱 편리하게 분석하기 위해서는 전체 지역(all)과 관심 지역(sel)을 구분해서 저장하여야 한다.
+```r
+3. 전체 지역/관심 지역 저장
+
+library(dplyr)
+apt_price <- st_join(apt_price, grid, join = st_intersects)  # 실거래 + 그리드 결합
+apt_price <- apt_price %>% st_drop_geometry()  # 실거래에서 공간 속성 지우기
+all <- apt_price  # 전체 지역(all) 추출
+sel <- apt_price %>% filter(ID == 81016)  # 관심 지역(sel) 추출
+dir.create('08_chart')  # 새로운 폴더 생성
+save(all, file="./08_chart/all.rdata")  # 저장
+save(sel, file="./08_chart/sel.rdata")
+rm(list = ls())  # 정리하기
+```
+
+**3. 회귀 분석: 이 지역은 일년에 얼마나 오를까?**
+- 회귀 분석이란 독립 변수(x)의 변화에 따른 종속 변수(y)의 변화를 수리적 모형으로 설명한 모델링이다.
+- 회귀 분석을 이용한 그래프를 통해 가격 변화를 확인하기 위해서는 총 3가지 단계를 시행해야 한다.
+```r
+1. 월별 거래가 요약하기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+load("./08_chart/all.rdata")  # 전체 지역
+load("./08_chart/sel.rdata")  # 관심 지역
+library(dplyr)  # install.packages("dplyr")
+library(lubridate)  # install.packages("lubridate")
+all <- all %>% group_by(month=floor_date(ymd, "month")) %>%
+  summarize(all_py = mean(py))  # 전체 지역 카운팅
+sel <- sel %>% group_by(month=floor_date(ymd, "month")) %>%
+  summarize(sel_py = mean(py))  # 관심 지역 카운팅
+```
+- summarize()는 데이터프레임의 정보를 한 줄로 요약해주는 함수로, group_by() 함수와 함께 사용된다. 
+```r
+2. 회귀식 모델링하기
+
+fit_all <- lm(all$all_py ~ all$month)  # 전체 지역 회귀식
+fit_sel <- lm(sel$sel_py ~ sel$month)  # 관심 지역 회귀식
+coef_all <- round(summary(fit_all)$coefficients[2], 1) * 365  # 전체 회귀 계수
+coef_sel <- round(summary(fit_sel)$coefficients[2], 1) * 365  # 관심 회귀 계수
+```
+- 회귀분석은 lm() 함수를 이용하며, 종속변수 ~ 독립변수의 형태로 모형식을 쓴다.
+```r
+3. 그래프 그리기
+
+# 분기별 평당 가격 변화 주석 만들기
+library(grid)  # install.packages("grid")
+grob_1 <- grobTree(textGrob(paste0("전체 지역: ", coef_all, "만원(평당)"), x=0.05,
+                            y=0.88, hjust=0, gp=gpar(col="blue", fontsize=13, fontface="italic")))
+grob_2 <- grobTree(textGrob(paste0("관심 지역: ", coef_sel, "만원(평당)"), x=0.05,
+                            y=0.95, hjust=0, gp=gpar(col="red", fontsize=16, fontface="bold")))
+
+# 관심 지역 회귀선 그리기
+library(ggpmisc)  # install.packages("ggpmisc")
+gg <- ggplot(sel, aes(x=month, y=sel_py)) +
+  geom_line() + xlab("월") + ylab("가격") +
+  theme(axis.text.x=element_text(angle=90)) +
+  stat_smooth(method='lm', colour="dark grey", linetype = "dashed") +
+  theme_bw()
+
+# 전체 지역 회귀선 그리기
+gg + geom_line(color="red", size=1.5) +
+  geom_line(data=all, aes(x=month, y=all_py), color="blue", size=1.5) +
+  # 주석 추가하기
+  annotation_custom(grob_1) +
+  annotation_custom(grob_2)
+rm(list = ls())  # 메모리 정리하기
+```
+- 회귀 분석 그래프를 그려보면 아래 사진과 같이 나타난다.
+<img width="565" alt="회귀 분석 그래프" src="https://user-images.githubusercontent.com/62285642/202837362-f038bd02-1c0e-476d-bacc-997469f07140.png">
+
+**+) Mac에서 한글이 제대로 표시되지 않는다면?**
+- Mac에서 실행할 때, 종종 한글이 깨지는 경우가 있다.
+- 이때 아래의 스크립트를 실행해주면 글꼴을 설정해주어 한글이 깨지는 것을 막아준다.
+```r
+require(showtext)  # install.packages("showtext")
+font_add_google(name='Nanum Gothic', regular.wt=400, bold.wt=700)
+showtext_auto()
+showtext_opts(dpi=112)
+```
+
+**4. 주성분 분석: 이 동네 아파트 단지의 특징은 무엇일까?**
+- 주성분 분석이란 다차원 정보를 효과적으로 요약하기 위한 대표적인 차원 축소 기법이다.
+- 주성분 분석을 이용한 그래프를 통해 단지별 특징을 확인하기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. 주성분 분석하기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+load("./08_chart/sel.rdata")  # 관심 지역 데이터 불러오기
+pca_01 <- aggregate(list(sel$con_year, sel$floor, sel$py, sel$area),
+                    by=list(sel$apt_nm), mean)  # 아파트별 평균값 구하기
+colnames(pca_01) <- c("apt_nm", "신축", "층수", "가격", "면적")
+m <- prcomp(~ 신축 + 층수 +가격 + 면적, data=pca_01, scale=T)  # 주성분 분석
+summary(m)
+```
+- 주성분 분석은 prcomp() 함수를 사용하며, 데이터를 주성분으로 변환해준다.
+```r
+2. 그래프 그리기
+
+library(ggfortify)  # install.packages("ggfortify")
+autoplot(m, loadings.label=T, loadings.label.size=6) +
+  geom_label(aes(label=pca_01$apt_nm), size=4)
+```
+- 주성분 분석 그래프를 그려보면 아래 사진과 같이 나타난다.
+<img width="570" alt="주성분 분석 그래프" src="https://user-images.githubusercontent.com/62285642/202837382-c81f73bc-6410-4714-baf6-553ede5903bc.png">
+
+> 샤이니 입문하기
+
+**+) 샤이니(Shiny)란?**
+- 데이터 분석가의 핵심 역량은 통계적 분석과 시각화 구현 능력뿐만 아니라 분석 결과를 애플리케이션으로 구현하여 공유할 수 있는 능력도 갖추어야 한다.
+- 따라서 R은 분석 결과를 웹 애플리케이션으로 구현할 수 있는 샤이니(Shiny)라는 패키지를 제공한다.
+- 샤이니는 기존 R 사용자를 고려하여 만들어졌기 때문에, 웹 개발에 필요한 HTML과 CSS, Javascript 같은 언어를 공부하는데 시간을 들이지 않아도 다양한 웹 애플리케이션을 개발할 수 있다.
+
+**1. 처음 만나는 샤이니**
+- 웹 애플리케이션은 사용자의 요청에 따라 응답하는 구조로 만들어진다.
+- 따라서 샤이니는 이러한 요청과 응답을 효과적으로 처리하고자 사용자 인터페이스, 서버, 실행이라는 3가지 구성 요소를 작성하여 웹 애플리케이션을 만든다.
+```r
+1. 샤이니 기본 구조 이해하기
+
+library(shiny) # install.packages(shiny)
+ui <- fluidPage("사용자 인터페이스")  # 사용자 인터페이스
+server <- function(input, output, session) { }  # 서버
+shinyApp(ui, server)  # 실행
+```
+- 데이터 분석은 크게 명령형과 반응형 방식으로 구분된다.
+- 명령형은 데이터 분석을 단계별로 진행하는 방식이며, 반응형은 분석을 진행하다가 특정한 조건이 바뀌면 되돌아가 다시 분석하는 방식이다.
+<img width="801" alt="명령형과 반응형 방식" src="https://user-images.githubusercontent.com/62285642/202837411-2e40d45e-2025-4364-96eb-d0e10e655593.png">
+
+- 기존 R 데이터 분석과 달리 샤이니 애플리케이션은 반응형 방식으로 동작한다.
+- 따라서 아래의 샘플 코드를 실행해보면 슬라이더와 그래프가 나타나면서 서로 반응형으로 작동하는 것을 확인할 수 있다.
+```r
+2. 샘플 실행해보기
+
+library(shiny)  # 라이브러리 등록
+runExample()  #샘플 보여주기
+
+runExample("01_hello")  # 1번 샘플 실행
+```
+- 샤이니 샘플 코드를 실행시키면 화면 하단에 사용자 인터페이스 및 서버 부분의 코드를 확인할 수 있다.
+- ui()는 사용자에게 보이는 화면으로 데이터 입력과 분석 결과 출력을 담당한다.
+- 따라서, 사용자 인터페이스 부분의 코드만 작성하여 실행시키면 사용자에게 보이는 화면인 UI만 확인할 수 있다.
+```r
+3. 사용자 인터페이스 부분
+
+library(shiny)  # 라이브러리 등록
+ui <- fluidPage(  # 사용자 인터페이스 시작: fluidPage 정의
+  titlePanel("샤이니 1번 샘플"),  # 제목 입력
+  # 레이아웃 구성: 사이드바 패널 + 메인 패널
+  sidebarLayout(  
+    sidebarPanel(  # 사이드바 패널 시작
+      sliderInput(inputId = "bins",  # 입력 아이디 
+                  label = "막대(bin) 개수: ",  # 텍스트 라벨
+                  min = 1, max = 50,  # 선택 범위(1 - 50)
+                  value = 30)),  # 기본값 30
+    mainPanel(  # 메인 패널 시작
+      # 출력값: output$distPlot 저장
+      plotOutput(outputId = "distPlot")  # 차트 출력
+    )
+  )
+)
+```
+- server()는 입력 결과를 처리한 다음 다시 ui()로 보내며, ShinyApp()은 애플리케이션을 실행하는 역할을 한다.
+- 따라서 서버 부분 코드까지 작성하여 ShinyApp()을 통해 UI와 서버 모두 실행시키면, 샤이니 샘플 코드와 동일한 화면과 결과를 확인할 수 있다.
+- 이때 input과 output 뒤에 나오는 session은 여러 사람이 샤이니를 동시에 이용할 경우, 서로의 입력값 및 출력값에 영향을 받지 않게 하기 위해 독립성을 확보하는 역할을 수행한다.
+```r
+4. 서버 부분
+
+server <- function(input, output, session) {
+  # 랜더링한 플롯을 output 인자의 distPlot에 저장
+  output$distPlot<- renderPlot({
+    x <- faithful$waiting  # 분출 대기 시간 정보 저장
+    # input$bins를 플롯으로 렌더링
+    bins <- seq(min(x), max(x), length.out = input$bins + 1)
+    # 히스토그램 그리기
+    hist(x, breaks = bins, col = "#75AADB", border = "white",
+         xlab = "다음 분출 때까지 대기 시간(분)",
+         main = "대기 시간 히스토그램")
+  })
+}
+
+shinyApp(ui, server)  # 실행
+rm(list = ls())  # 메모리 정리
+```
+
+**2. 입력과 출력하기**
+- 샤이니는 입력 조건을 바꿔서 서버의 계산을 거쳐 출력 결과로 전달하는 과정이 중요하다.
+- 입력 위젯은 사용자들이 입력하는 값을 받는 장치로서, 샤이니에서 제공하는 함수 이름은 대체로 ~Input으로 끝난다.
+- 샤이니에는 다양한 입력 모듈이 존재하는데, 이는 샤이니 공식 홈페이지에서 확인할 수 있다.<br>
+  → https://shiny.rstudio.com/
+```r
+1. 입력받기 input$~
+
+library(shiny)
+ui <- fluidPage(
+  sliderInput("range", "연비", min = 0, max = 35, value = c(0, 10))  # 데이터 입력
+)
+server <- function(input, output, session) {}  # 반응 없음
+
+shinyApp(ui, server)  # 실행
+```
+- 출력 위젯 또한 사용자들이 입력하는 값을 받아 출력하는 장치로서, 샤이니에서 제공하는 함수 이름은 대체로 ~Output으로 끝난다.
+- 입력된 데이터 값을 받아 실제로 계산하여 출력해주기 위해서는 서버에 값을 넘겨주는 함수의 중괄호 안에 정의해주어야 한다.
+```r
+2. 출력하기 output$~
+
+library(shiny)
+ui <- fluidPage(
+  sliderInput("range", "연비", min = 0, max = 35, value = c(0, 10)),  # 데이터 입력
+  textOutput("value")  # 결과값 출력
+)
+server <- function(input, output, session) {
+  output$value <- renderText((input$range[1] + input$range[2]))  # 입력값 계산
+}
+
+shinyApp(ui, server)
+```
+- 아래의 코드를 실행하면 'Can't access reactive value 'range' outside of reactive consumer.'라는 에러 메세지를 확인할 수 있다.
+- 이는 서버에서 입력값을 계산한 후 출력할 때 렌더링 함수가 없어서 발생한 오류이다.
+- 따라서 계산한 결과값을 갱신해주기 위해서는 렌더링 함수가 꼭 필요하다.
+```r
+3. 렌더링 함수의 중요성 render()~
+
+library(shiny)
+ui <- fluidPage(
+  sliderInput("range", "연비", min = 0, max = 35, value = c(0, 10)),  # 데이터 입력
+  textOutput("value")  # 출력
+)
+server <- function(input, output, session) {
+  output$value <- (input$range[1] + input$range[2])  # 입력값 계산
+}
+
+shinyApp(ui, server)
+```
+
 ## 11월 09일
 > 분석 주제를 지도로 시각화하기
 
