@@ -1,6 +1,353 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 11월 23일
+
+> 샤이니 입문하기
+
+**3. 반응형 웹 애플리케이션 만들기**
+- 반응성이란 ui()의 입력값인 input$~이 변경될 때 server()가 자동으로 변화를 감지하여 출력값 output$~을 렌더링 후 갱신하는 것을 말한다.
+- 이러한 반응형 웹 애플리케이션을 만들기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. 데이터 준비하기
+
+library(DT)  # install.packages("DT")
+library(ggplot2)  # install.packages("ggplot2")
+mpg <- mpg
+head(mpg)
+```
+- DT 패키지는 데이터를 편리하게 다룰 수 있는 패키지이다.
+- 이 패키지를 이용하여 mpg로 ggplot2 패키지에 포함된 자동차 연비 테스트 결과 데이터 세트를 불러올 수 있다.
+```r
+2. 반응식 작성하기
+
+library(shiny)
+ui <- fluidPage(
+  sliderInput("range", "연비", min = 0, max = 35, value = c(0, 10)),  # 데이터 입력
+  DT::dataTableOutput("table")  # 출력
+)
+server <- function(input, output, session) {
+  # 반응식
+  cty_sel = reactive({
+    cty_sel = subset(mpg, cty >= input$range[1] & cty <= input$range[2])
+    return(cty_sel)
+  })
+  # 반응 결과 렌더링
+  output$table <- DT::renderDataTable(cty_sel())
+}
+
+shinyApp(ui, server)
+```
+- reacvtive() 반응식은 사용자 입력에 따라서 반응(결과를 필터링)하도록 시작해준다.
+- 이때, server() 내에서 반응식 결과를 사용할 때는 뒤에 호출 연산자 ()를 붙여주어야 한다.
+
+**4. 레이아웃 정의하기**
+- 레이아웃이란 제한된 공간 안에 문자, 그림, 기호, 사진 같은 구성 요소를 효과적으로 배치하는 것을 이야기한다.
+- 샤이니에서 레이아웃이란 제한된 화면 안에 입력 위젯과 출력 결과를 배치하는 방식을 의미한다.
+- 일반적으로 작업의 편의와 공간 배치의 효율을 생각하여 그리드라 불리는 규격화된 레이아웃을 선호한다.
+- 따라서 그리드 방식을 사용하려면 아래와 같이 ui()에서 fluidPage() → fluidRow() → column() 순서로 화면의 정의하면 된다.
+```r
+1. 단일 페이지 레이아웃
+
+library(shiny)
+# 전체 페이지 정의
+ui <- fluidPage(
+  # 행 row 구성 정의
+  fluidRow(
+    # 첫 번째 열: 빨강(red) 박스로 높이 450 픽셀, 폭 9
+    column(9, div(style = "height: 450px; border: 4px solid red;", "폭 9")),
+    # 두 번째 열: 보라(purple) 박스로 높이 450 픽셀, 폭 3
+    column(3, div(style = "height: 450px; border: 4px solid purple;", "폭 3")),
+    # 세 번째 열: 파랑(blue) 박스로 높이 400 픽셀, 폭 12
+    column(12, div(style = "height: 400px; border: 4px solid blue;", "폭 12"))
+  )
+)
+server <- function(input, output, session) { }
+
+shinyApp(ui, server)
+```
+- tabsetPanel()을 이용하면 아래와 같이 탭 페이지를 추가할 수 있다.
+```r
+2. 탭 페이지 추가하기
+
+library(shiny)
+ui <- fluidPage(
+  fluidRow(
+    column(9, div(style = "height: 450px; border: 4px solid red;", "폭 9")),
+    column(3, div(style = "height: 450px; border: 4px solid red;", "폭 3")),
+    # 탭 패널 1 ~ 2번 추가
+    tabsetPanel(
+      tabPanel("탭1",
+               column(4, div(style = "height: 300px; border: 4px solid red;", "폭 4")),
+               column(4, div(style = "height: 300px; border: 4px solid red;", "폭 4")),
+               column(4, div(style = "height: 300px; border: 4px solid red;", "폭 4"))
+               ),
+      tabPanel("탭2", div(style = "height: 300px; border: 4px solid blue;", "폭 12"))
+    )
+  )
+)
+server <- function(input, output, session) { }
+
+shinyApp(ui, server)
+```
+
+> 데이터 분석 애플리케이션 개발하기
+
+**1. 반응형 지도 만들기**
+- 반응형 지도를 만들기 위해서는 leaflet을 기반으로 만들어주어야 한다.
+- leaflet이란 반응형 지도를 만드는 라이브러리이다. 
+- 이를 이용한 반응형 지도를 만들기 위해서는 총 3가지 단계를 시행해야 한다.
+```r
+1. 데이터 불러오기
+
+setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+load("./06_geodataframe/06_apt_price.rdata")  # 아파트 실거래 데이터
+library(sf)
+bnd <- st_read("./01_code/sigun_bnd/seoul.shp")  # 서울시 경계선
+load("./07_map/07_kde_high.rdata")  # 최고가 래스터 이미지
+load("./07_map/07_kde_hot.rdata")  # 급등 지역 래스터 이미지
+grid <- st_read("./01_code/sigun_grid/seoul.shp")  # 서울시 1km 그리드
+```
+- 데이터는 분석 주제를 지도로 시각화하기 위해 진행했던 작업의 결과물 중 필요한 데이터와 셰이프 파일을 불러오면 된다.
+```r
+2. 마커 클러스터링 설정
+
+pnct_10 <- as.numeric(quantile(apt_price$py, probs=seq(.1, .9, by = .1))[1])  # 하위 10%
+pnct_90 <- as.numeric(quantile(apt_price$py, probs=seq(.1, .9, by = .1))[9])  # 상위 10%
+load("./01_code/circle_marker/circle_marker.rdata")  # 마커 클러스터링 함수
+circle.colors <- sample(x=c("red", "green", "blue"), size=1000, replace=TRUE)
+```
+- 마커 클러스터링 설정 역시 이전에 다뤘던 것처럼 데이터가 왜곡되는 것을 방지하고자 quantile()로 하위 10%, 상위 10% 지점을 특정하여 마커 클러스터링 실행 스크립트를 등록해준다.
+```r
+3. 반응형 지도 만들기
+
+library(leaflet)
+library(purrr)
+library(raster)
+leaflet() %>%
+  # 기본 맵 설정: 오픈 스트리트 맵
+  addTiles(options = providerTileOptions(minZoom = 9, maxZoom = 18)) %>%
+  # 최고가 지역 KDE
+  addRasterImage(raster_high,
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"), 
+                                       values(raster_high), na.color = "transparent"), opacity = 0.4, 
+                 group = "2021 최고가") %>%
+  # 급등 지역 KDE
+  addRasterImage(raster_hot,
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"), 
+                                       values(raster_hot), na.color = "transparent"), opacity = 0.4, 
+                 group = "2021 급등지") %>%
+  # 레이어 스위치 메뉴
+  addLayersControl(baseGroups = c("2021 최고가", "2021 급등지"),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  # 서울시 외곽 경계선
+  addPolygons(data = bnd, weight = 3, stroke = T, color = "red", fillOpacity = 0) %>%
+  # 마커 클러스터링
+  addCircleMarkers(data = apt_price, lng = unlist(map(apt_price$geometry, 1)),
+                   lat = unlist(map(apt_price$geometry, 2)), radius = 10, stroke = FALSE,
+                   fillOpacity = 0.6, fillColor = circle.colors, weight = apt_price$py,
+                   clusterOptions = markerClusterOptions(iconCreateFunction=JS(avg.formula)))
+```
+- 반응형 지도를 실행해보면 아래 사진과 같이 원하는 지역의 마커스트링에 마우스를 올릴 때 해당 지역에 파란색 경계선이 생기고, 이를 선택할 때마다 해당 지역이 확대되면서 마커 클러스터링이 변하는 것을 확인할 수 있다.
+<img width="603" alt="반응형 지도" src="https://user-images.githubusercontent.com/62285642/204094883-ea5e3865-46bb-4570-8900-c6396ce8105d.png">
+
+**2. 지도 애플리케이션 만들기**
+- 반응형 지도를 활용하여 지도 애플리케이션을 구현하기 위해서는 샤이니와 mapedit 패키지를 사용해야 한다.
+- mapedit 패키지는 자바스크립트뿐만 아니라 HTML 같은 웹 프로그래밍 기술을 활용하여 더 복잡한 지도 기반 애플리케이션을 구현할 수 있도록 도와준다.
+- 이러한 반응형 지도 애플리케이션을 만들기 위해서는 총 4가지 단계를 시행해야 한다.
+```r
+1. 그리드 필터링하기
+
+grid <- st_read("./01_code/sigun_grid/seoul.shp")  # 그리드 불러오기
+grid <- as(grid, "Spatial"); grid <- as(grid, "sfc")  # 변환
+grid <- grid[which(sapply(st_contains(st_sf(grid), apt_price), length) > 0)]  # 필터링
+plot(grid)  # 그리드 확인
+```
+- 그리드 데이터를 변환하기 위해서는 as() 함수를 이용하면 된다.
+- st_contains() 함수를 이용하면 필요한 데이터를 결합하여 원하는 그리드만 추출할 수 있다.
+- 이때, which 그리드가 선택되었는지 확인하고 필터링해야 한다.
+```r
+2. 반응형 지도 모듈화하기
+
+m <- leaflet() %>%
+  # 기본 맵 설정: 오픈 스트리트 맵
+  addTiles(options = providerTileOptions(minZoom = 9, maxZoom = 18)) %>%
+  # 최고가 지역 KDE
+  addRasterImage(raster_high,
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"), 
+                                       values(raster_high), na.color = "transparent"), opacity = 0.4, 
+                 group = "2021 최고가") %>%
+  # 급등 지역 KDE
+  addRasterImage(raster_hot,
+                 colors = colorNumeric(c("blue", "green", "yellow", "red"), 
+                                       values(raster_hot), na.color = "transparent"), opacity = 0.4, 
+                 group = "2021 급등지") %>%
+  # 레이어 스위치 메뉴
+  addLayersControl(baseGroups = c("2021 최고가", "2021 급등지"),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  # 서울시 외곽 경계선
+  addPolygons(data = bnd, weight = 3, stroke = T, color = "red", fillOpacity = 0) %>%
+  # 마커 클러스터링
+  addCircleMarkers(data = apt_price, lng = unlist(map(apt_price$geometry, 1)),
+                   lat = unlist(map(apt_price$geometry, 2)), radius = 10, stroke = FALSE,
+                   fillOpacity = 0.6, fillColor = circle.colors, weight = apt_price$py,
+                   clusterOptions = markerClusterOptions(iconCreateFunction=JS(avg.formula)))
+  # 그리드
+  leafem::addFeatures(st_sf(grid), layerId = ~seq_len(length(grid)), color = "grey")
+m
+```
+- 이 지도는 앞서 만들었던 반응형 지도와 동일하지만, addFeatures()로 그리드 지도 레이어를 추가하고 이를 변수로 저장하였다는 차이점이 있다.
+- 이렇게 만든 변수는 자바스크립트를 포함하는 htmlwidgets이라고 하며, 샤이니에서 불러와서 사용할 수 있다.
+```r
+3. 애플리케이션 구현하기
+
+library(shiny)  # install.packages("shiny")
+library(mapedit)  # install.packages("mapedit")
+library(dplyr)  # install.packages("dplyr")
+# 사용자 인터페이스
+ui <- fluidPage(
+  selectModUI("selectmap"),  # 그리드 선택 모듈
+  "선택은 할 수 있지만 아무런 반응이 없습니다."
+)
+# 서버
+server <- function(input, output) {
+  callModule(selectMod, "selectmap", m)  # 모듈 서버 함수
+}
+
+# 실행
+shinyApp(ui, server)
+```
+- 지도에서 특정 지점을 선택하여 분석하는 기능을 구현하기 위해서는 mapedit 패키지를 사용한다.
+- mapedit은 지도의 특정 지점을 선택하거나 처리하는 selectModUI()와 callModule() 라이브러리를 제공한다.
+  - selectModUI(): 지도 입력 모듈로, 지도에서 특정 지점이 선택될 때 입력값을 서버로 전달
+  - callModule(): 입력 결과를 처리하여 다시 화면으로 전달하는 출력 모듈
+```r
+4. 반응식 추가하기
+
+# 사용자 인터페이스
+ui <- fluidPage(
+  selectModUI("selectmap"),
+  textOutput("sel")
+)
+# 서버
+server <- function(input, output, session) {
+  df <- callModule(selectMod, "selectmap", m)
+  output$sel <- renderPrint({df()[1]})
+}
+
+# 실행
+shinyApp(ui, server)
+```
+- 지도 애플리케이션을 실행하면 아래 사진과 같이 앞서 만들었던 반응형 지도에 그리드가 추가된 화면이 나타나면서 지도 하단에 선택한 그리드의 ID 번호를 확인할 수 있다.
+<img width="601" alt="지도 애플리케이션 실행 화면" src="https://user-images.githubusercontent.com/62285642/204094912-13febe48-e221-4cb9-bd44-ad0ca4f0040f.png">
+
+**3. 반응형 지도 애플리케이션 완성하기**
+- 반응형 지도 애플리케이션을 완성하기 위해서는 총 6가지 단계를 시행해야 한다.
+```r
+1. 사용자 인터페이스 설정하기
+
+library(DT)  # install.packages("DT")
+ui <- fluidPage(
+  # 상단 화면: 지도 + 입력 슬라이더
+  fluidRow(
+    column(9, selectModUI("selectmap"), div(style = "height: 45px")),
+    column(3, 
+           sliderInput("range_area", "전용 면적", sep = "", min = 0, max = 350, 
+                       value = c(0, 200)),
+           sliderInput("range_time", "건축 연도", sep = "", min = 1960, max = 2020, 
+                       value = c(1980, 2020)),
+    ),
+    # 하단 화면: 테이블 출력
+    column(12, dataTableOutput(outputId = "table"), div(style = "height: 200px"))
+  )
+)
+```
+```r
+2. 반응식 설정하기
+
+server <- function(input, output, session) {
+  # 반응식
+  apt_sel = reactive({
+    apt_sel = subset(apt_price, con_year >= input$range_time[1] & 
+                       con_year <= input$range_time[2] & area >= input$range_area[1] & 
+                       area <= input$range_area[2])
+    return(apt_sel)})
+```
+```r
+3. 지도 입출력 모듈 설정하기
+
+  g_sel <- callModule(selectMod, "selectmap",
+                      leaflet() %>%
+                        # 기본 맵 설정: 오픈 스트리트 맵
+                        addTiles(options = providerTileOptions(minZoom = 9, maxZoom = 18)) %>%
+                        # 최고가 지역 KDE
+                        addRasterImage(raster_high, 
+                                       colors = colorNumeric(c("blue", "green","yellow","red"), 
+                                                             values(raster_high), 
+                                                             na.color = "transparent"), opacity = 0.4, 
+                                       group = "2021 최고가") %>%
+                        # 급등 지역 KDE 
+                        addRasterImage(raster_hot, 
+                                       colors = colorNumeric(c("blue", "green","yellow","red"), 
+                                                             values(raster_hot), 
+                                                             na.color = "transparent"), opacity = 0.4, 
+                                       group = "2021 급등지") %>%
+                        # 레이어 스위치 메뉴
+                        addLayersControl(baseGroups = c("2021 최고가", "2021 급등지"), 
+                                         options = layersControlOptions(collapsed = FALSE)) %>%
+                        # 서울시 외곽 경계선
+                        addPolygons(data=bnd, weight = 3, stroke = T, color = "red", 
+                                    fillOpacity = 0) %>%
+                        # 마커 클러스터링
+                        addCircleMarkers(data = apt_price, lng =unlist(map(apt_price$geometry,1)), 
+                                         lat = unlist(map(apt_price$geometry,2)), radius = 10, 
+                                         stroke = FALSE, 
+                                         fillOpacity = 0.6, 
+                                         fillColor = circle.colors, weight=apt_price$py,
+                                         clusterOptions=markerClusterOptions(iconCreateFunction=JS(avg.formula))) %>%
+                        # 그리드
+                        leafem::addFeatures(st_sf(grid),layerId= ~seq_len(length(grid)),
+                                            color='grey'))
+```
+```r
+4. 선택에 따른 반응 결과 저장
+
+  # 반응 초깃값 설정(NULL)
+  rv <- reactiveValues(intersect=NULL, selectgrid=NULL) 
+  # 반응 결과(rv: reactive value) 저장
+  observe({
+    gs <- g_sel() 
+    rv$selectgrid <- st_sf(grid[as.numeric(gs[which(gs$selected==TRUE),"id"])])
+    if(length(rv$selectgrid) > 0){
+      rv$intersect <- st_intersects(rv$selectgrid, apt_sel())
+      rv$sel <- st_drop_geometry(apt_price[apt_price[unlist(rv$intersect[1:10]),],])
+    } else {
+      rv$intersect <- NULL
+    }
+  })
+```
+```r
+5. 반응 결과 렌더링
+
+  output$table <- DT::renderDataTable({
+    dplyr::select(rv$sel, ymd, addr_1, apt_nm, price, area, floor, py) %>%
+      arrange(desc(py))}, extensions = 'Buttons', options = list(dom = 'Bfrtip',
+                                                                 scrollY = 300, scrollCollapse = T, paging
+                                                                 TRUE, buttons = c('excel')))
+}
+```
+```r
+6. 애플리케이션 실행
+
+shinyApp(ui, server)
+```
+
+**4. 서울시 아파트 실거래 애플리케이션 만들기**
+- 서울시 아파트 실거래 애플리케이션 만들기 위해서는 총 8가지 단계를 시행해야 한다.
+- 이와 관련된 코드는 app.R(https://github.com/jsso16/R-project/commit/ee617b7a2a909679dfc82b42ac306848cbccfc36)에서 확인할 수 있다.
+- 완성된 애플리케이션을 실행하면 아래 사진과 같은 화면을 확인할 수 있다.
+<img width="908" alt="서울시 아파트 실거래 애플리케이션 화면" src="https://user-images.githubusercontent.com/62285642/204094862-dbc184ac-19cc-4535-b47c-1a495a7e3c94.png">
+
 ## 11월 16일
 > 통계 분석과 시각화
 
