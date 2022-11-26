@@ -45,7 +45,7 @@ shinyApp(ui, server)
 - 레이아웃이란 제한된 공간 안에 문자, 그림, 기호, 사진 같은 구성 요소를 효과적으로 배치하는 것을 이야기한다.
 - 샤이니에서 레이아웃이란 제한된 화면 안에 입력 위젯과 출력 결과를 배치하는 방식을 의미한다.
 - 일반적으로 작업의 편의와 공간 배치의 효율을 생각하여 그리드라 불리는 규격화된 레이아웃을 선호한다.
-- 따라서 그리드 방식을 사용하려면 아래와 같이 ui()에서 fluidPage() → fluidRow() → column() 순서로 화면의 정의하면 된다.
+- 따라서 그리드 방식을 사용하려면 아래와 같이 ui()에서 fluidPage() → fluidRow() → column() 순서로 화면을 정의하면 된다.
 ```r
 1. 단일 페이지 레이아웃
 
@@ -344,7 +344,7 @@ shinyApp(ui, server)
 
 **4. 서울시 아파트 실거래 애플리케이션 만들기**
 - 서울시 아파트 실거래 애플리케이션 만들기 위해서는 총 8가지 단계를 시행해야 한다.
-- 이와 관련된 코드는 app.R(https://github.com/jsso16/R-project/commit/ee617b7a2a909679dfc82b42ac306848cbccfc36)에서 확인할 수 있다.
+- 이와 관련된 코드는 [app.R](https://github.com/jsso16/R-project/commit/ee617b7a2a909679dfc82b42ac306848cbccfc36)에서 확인할 수 있다.
 - 완성된 애플리케이션을 실행하면 아래 사진과 같은 화면을 확인할 수 있다.
 <img width="908" alt="서울시 아파트 실거래 애플리케이션 화면" src="https://user-images.githubusercontent.com/62285642/204094862-dbc184ac-19cc-4535-b47c-1a495a7e3c94.png">
 
