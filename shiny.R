@@ -76,3 +76,64 @@ server <- function(input, output, session) {
 }
 
 shinyApp(ui, server)
+
+#---
+
+# 1단계: 데이터 준비
+# install.packages("DT")
+library(DT)
+library(ggplot2)
+mpg <- mpg
+head(mpg)
+
+# 2단계: 반응식 작성
+library(shiny)
+ui <- fluidPage(
+  sliderInput("range", "연비", min = 0, max = 35, value = c(0, 10)),
+  DT::dataTableOutput("table")
+)
+server <- function(input, output, session) {
+  cty_sel = reactive({
+    cty_sel = subset(mpg, cty >= input$range[1] & cty <= input$range[2])
+    return(cty_sel)
+  })
+  output$table <- DT::renderDataTable(cty_sel())
+}
+
+shinyApp(ui, server)
+
+#---
+
+# 1단계: 단일 페이지 화면
+library(shiny)
+ui <- fluidPage(
+  fluidRow(
+    column(9, div(style = "height: 450px; border: 4px solid red;", "폭 9")),
+    column(3, div(style = "height: 450px; border: 4px solid purple;", "폭 3")),
+    column(12, div(style = "height: 400px; border: 4px solid blue;", "폭 12"))
+  )
+)
+server <- function(input, output, session) { }
+
+shinyApp(ui, server)
+
+# 2단계: 탭 페이지 추가
+library(shiny)
+ui <- fluidPage(
+  fluidRow(
+    column(9, div(style = "height: 450px; border: 4px solid red;", "폭 9")),
+    column(3, div(style = "height: 450px; border: 4px solid red;", "폭 3")),
+    
+    tabsetPanel(
+      tabPanel("탭1",
+               column(4, div(style = "height: 300px; border: 4px solid red;", "폭 4")),
+               column(4, div(style = "height: 300px; border: 4px solid red;", "폭 4")),
+               column(4, div(style = "height: 300px; border: 4px solid red;", "폭 4"))
+      ),
+      tabPanel("탭2", div(style = "height: 300px; border: 4px solid blue;", "폭 12"))
+    )
+  )
+)
+server <- function(input, output, session) { }
+
+shinyApp(ui, server)
