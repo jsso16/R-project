@@ -1,6 +1,88 @@
 # R-project - 602277119 전소진
 Open data R with Shiny 2022
 
+## 11월 30일
+
+> 애플리케이션 배포하기
+
+**+) 샤이니 클라우드 서비스란?**
+- 샤이니로 개발한 애플리케이션을 다른 사람들과 공유하려면 웹 서버가 필요하다.
+- 웹 서버는 직접 구축하거나 아마존 웹 서비스, 구글 클라우드, 마이크로소프트 애저 같은 클라우드 서비스를 이용하기도 한다.
+- 그러나 웹 서버 구축은 데이터 분석과는 또 다른 전문 영역이므로 일반 R 사용자가 접근하기에는 어려울 수 있다.
+- 따라서 RStudio는 샤이니 애플리케이션을 쉽고 빠르게 배포하도록 shinyapps.io라는 샤이니 클라우드 서비스를 제공한다.
+
+**1. 배포 준비하기**
+- 샤이니 클라우드 서비스를 이용하기 위해서는 [shinyapps.io](https://www.shinyapps.io/)에 접속하여 회원가입 및 로그인 후 배포 계정을 연결해주어야 한다.
+-  이렇게 애플리케이션 배포를 준비하기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. shinyapps.io 가입하기
+  - shinyapps.io 첫 화면의 Sign Up 버튼 클릭하기
+  → 회원가입 및 로그인 하기
+  → 계정 설정 화면에서 계정 이름 입력 후, <Save> 버튼 클릭하기
+```
+- 회원가입 후 로그인하면 계정 설정 화면이 나오는데, 이 계정 이름은 애플리케이션 배포 후 다른 사용자가 접속할 경로의 일부로 사용되기도 한다.
+```r
+2. 배포 계정 연결하기
+  - 메뉴에서 [Tools → Global Options → Publishing] 선택하기
+  → 옵션창의 <Connect> 버튼 클릭하기
+  → 연결 계정 선택 화면에서 ShinyApps.io 선택하기
+  → 계정 정보 입력 후, <Connect Account> 버튼 클릭하기
+  → Publishing Accounts 입력 상자에 계정 이름이 나타나면 <OK> 버튼 클릭하기
+```
+- 계정 정보는 shinyapps.io 관리자 페이지에서 아래와 같이 확인할 수 있다.
+```r
++) 계정 정보 확인하기
+  - 관리자 페이지 접속 후, [Account → Token] 메뉴 클릭하기
+  → 계정 정보가 나타나면 우측의 <Show> 버튼 클릭하기
+  → 팝업에서 <Copy to clipboard> 버튼 클릭하기
+  → 화면 상단에 팝업이 새로 뜨면서 나타나는 코드 복사하기
+```
+
+**2. 샤이니 클라우드에 배포하기**
+- 애플리케이션을 배포할 준비가 완료되었다면, 배포할 소스 파일을 클라우드에 올려야 한다.
+- 이렇게 샤이니 클라우드에 애플리케이션을 배포하기 위해서는 총 2가지 단계를 시행해야 한다.
+```r
+1. 배포할 소스 파일 준비하기
+
+require(showtext)
+font_add_google(name='Nanum Gothic', regular.wt=400, bold.wt=700)
+showtext_auto()
+showtext_opts(dpi=112)
+
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))  # 주석 처리하기
+grid <- st_read("./01_code/sigun_grid/seoul.shp") 
+bnd <- st_read("./01_code/sigun_bnd/seoul.shp")  
+load("./06_geodataframe/06_apt_price.rdata")      
+load("./07_map/07_kde_high.rdata")                
+load("./07_map/07_kde_hot.rdata")   
+```
+- 온라인 배포 시에는 반드시 현재 작업 폴더의 위치를 자동으로 설정해주는 코드를 주석 처리해주어야 한다.
+- 웹 서버에서 앱을 배포할 때 위 명령어가 주석 처리되지 않고 실행되면 다음과 같은 에러가 발생할 수 있기 때문이다.
+<img width="538" alt="주석 미처리 에러 메세지" src="https://user-images.githubusercontent.com/62285642/205444818-343a7b69-a779-46e8-bd5a-742d85687f35.png">
+
+```r
+2. 파일 올리기
+  - 최종 파일의 오른쪽 상단에 배포 아이콘 클릭하기 or
+    메뉴바에서 [File → Publish] 선택하기
+```
+- 이때, 반드시 다음 파일을 같이 선택해주어야 한다.
+  - app.R: 최종 애플리케이션 파일
+  - 01_code: 기초 데이터들이 담긴 폴더
+  - 06_geodataframe/06_apt_price.rdata: 서울시 아파트 실거래 데이터
+  - 07_map/06_kde_high.rdata: 최고가 래스터 이미지
+  - 07_map/06_kde_hot.rdata: 급등지 래스터 이미지
+- 파일이 다 올라가기까지 약 5분 ~ 10분 정도의 시간이 걸리며, 파일이 전부 올라가면 하단의 Deploy 창에 'Deployment completed' 메세지가 나타난다.
+
+**3. 애플리케이션 이용하기**
+- 파일 올리기가 완료되면 Deploy 창 가장 하단에 'Deployment completed' 메세지와 함께 애플리케이션 접속 주소를 확인할 수 있다.
+- 애플리케이션 경로 형식은 아래와 같다.
+```r
+https://##계정 _이름##.shinyapps.io/##애플리케이션 _이름##
+```
+- 접속 주소를 웹 브라우저에 입력하면 배포된 애플리케이션 사용할 수 있다.
+- 이 프로젝트의 완성본은 아래 주소에서 확인할 수 있다.<br>
+  → https://jsso16.shinyapps.io/R-Test/
+
 ## 11월 23일
 
 > 샤이니 입문하기
@@ -94,7 +176,7 @@ shinyApp(ui, server)
 > 데이터 분석 애플리케이션 개발하기
 
 **1. 반응형 지도 만들기**
-- 반응형 지도를 만들기 위해서는 leaflet을 기반으로 만들어주어야 한다.
+- 반응형 지도는 leaflet을 기반으로 만들어주어야 한다.
 - leaflet이란 반응형 지도를 만드는 라이브러리이다. 
 - 이를 이용한 반응형 지도를 만들기 위해서는 총 3가지 단계를 시행해야 한다.
 ```r
@@ -108,7 +190,7 @@ load("./07_map/07_kde_high.rdata")  # 최고가 래스터 이미지
 load("./07_map/07_kde_hot.rdata")  # 급등 지역 래스터 이미지
 grid <- st_read("./01_code/sigun_grid/seoul.shp")  # 서울시 1km 그리드
 ```
-- 데이터는 분석 주제를 지도로 시각화하기 위해 진행했던 작업의 결과물 중 필요한 데이터와 셰이프 파일을 불러오면 된다.
+- 데이터는 분석 주제를 지도로 시각화하기 위해 진행했던 작업의 결과물 중 필요한 데이터와 래스터 이미지, 셰이프 파일을 불러오면 된다.
 ```r
 2. 마커 클러스터링 설정
 
@@ -148,7 +230,7 @@ leaflet() %>%
                    fillOpacity = 0.6, fillColor = circle.colors, weight = apt_price$py,
                    clusterOptions = markerClusterOptions(iconCreateFunction=JS(avg.formula)))
 ```
-- 반응형 지도를 실행해보면 아래 사진과 같이 원하는 지역의 마커스트링에 마우스를 올릴 때 해당 지역에 파란색 경계선이 생기고, 이를 선택할 때마다 해당 지역이 확대되면서 마커 클러스터링이 변하는 것을 확인할 수 있다.
+- 반응형 지도를 실행해보면 아래 사진과 같이 원하는 지역의 마커 클러스터링에 마우스를 올릴 때 해당 지역에 파란색 경계선이 생기고, 이를 선택할 때마다 해당 지역이 확대되면서 마커 클러스터링이 변하는 것을 확인할 수 있다.
 <img width="603" alt="반응형 지도" src="https://user-images.githubusercontent.com/62285642/204094883-ea5e3865-46bb-4570-8900-c6396ce8105d.png">
 
 **2. 지도 애플리케이션 만들기**
@@ -165,7 +247,7 @@ plot(grid)  # 그리드 확인
 ```
 - 그리드 데이터를 변환하기 위해서는 as() 함수를 이용하면 된다.
 - st_contains() 함수를 이용하면 필요한 데이터를 결합하여 원하는 그리드만 추출할 수 있다.
-- 이때, which 그리드가 선택되었는지 확인하고 필터링해야 한다.
+- 그리드를 선택할 때, which 그리드가 선택되었는지 알아내고 필터링해야 한다.
 ```r
 2. 반응형 지도 모듈화하기
 
@@ -196,7 +278,7 @@ m <- leaflet() %>%
   leafem::addFeatures(st_sf(grid), layerId = ~seq_len(length(grid)), color = "grey")
 m
 ```
-- 이 지도는 앞서 만들었던 반응형 지도와 동일하지만, addFeatures()로 그리드 지도 레이어를 추가하고 이를 변수로 저장하였다는 차이점이 있다.
+- 모듈화한 반응형 지도는 앞서 만들었던 반응형 지도와 동일하지만, addFeatures()로 그리드 지도 레이어를 추가하고 이를 변수로 저장하였다는 차이점이 있다.
 - 이렇게 만든 변수는 자바스크립트를 포함하는 htmlwidgets이라고 하며, 샤이니에서 불러와서 사용할 수 있다.
 ```r
 3. 애플리케이션 구현하기
@@ -219,7 +301,7 @@ shinyApp(ui, server)
 ```
 - 지도에서 특정 지점을 선택하여 분석하는 기능을 구현하기 위해서는 mapedit 패키지를 사용한다.
 - mapedit은 지도의 특정 지점을 선택하거나 처리하는 selectModUI()와 callModule() 라이브러리를 제공한다.
-  - selectModUI(): 지도 입력 모듈로, 지도에서 특정 지점이 선택될 때 입력값을 서버로 전달
+  - selectModUI(): 지도 입력 모듈로 지도에서 특정 지점이 선택될 때 입력값을 서버로 전달
   - callModule(): 입력 결과를 처리하여 다시 화면으로 전달하는 출력 모듈
 ```r
 4. 반응식 추가하기
@@ -238,7 +320,7 @@ server <- function(input, output, session) {
 # 실행
 shinyApp(ui, server)
 ```
-- 지도 애플리케이션을 실행하면 아래 사진과 같이 앞서 만들었던 반응형 지도에 그리드가 추가된 화면이 나타나면서 지도 하단에 선택한 그리드의 ID 번호를 확인할 수 있다.
+- 지도 애플리케이션을 실행하면 아래 사진과 같이 반응형 지도에 그리드가 추가된 화면이 나타나면서 지도 하단에 선택한 그리드의 ID 번호를 확인할 수 있다.
 <img width="601" alt="지도 애플리케이션 실행 화면" src="https://user-images.githubusercontent.com/62285642/204094912-13febe48-e221-4cb9-bd44-ad0ca4f0040f.png">
 
 **3. 반응형 지도 애플리케이션 완성하기**
@@ -318,7 +400,7 @@ server <- function(input, output, session) {
   observe({
     gs <- g_sel() 
     rv$selectgrid <- st_sf(grid[as.numeric(gs[which(gs$selected==TRUE),"id"])])
-    if(length(rv$selectgrid) > 0){
+    if (length(rv$selectgrid) > 0) {
       rv$intersect <- st_intersects(rv$selectgrid, apt_sel())
       rv$sel <- st_drop_geometry(apt_price[apt_price[unlist(rv$intersect[1:10]),],])
     } else {
@@ -344,7 +426,7 @@ shinyApp(ui, server)
 
 **4. 서울시 아파트 실거래 애플리케이션 만들기**
 - 서울시 아파트 실거래 애플리케이션 만들기 위해서는 총 8가지 단계를 시행해야 한다.
-- 이와 관련된 코드는 [app.R](https://github.com/jsso16/R-project/commit/ee617b7a2a909679dfc82b42ac306848cbccfc36)에서 확인할 수 있다.
+- 이와 관련된 코드는 [app.R](https://github.com/jsso16/R-project/blob/main/app.R)에서 확인할 수 있다.
 - 완성된 애플리케이션을 실행하면 아래 사진과 같은 화면을 확인할 수 있다.
 <img width="908" alt="서울시 아파트 실거래 애플리케이션 화면" src="https://user-images.githubusercontent.com/62285642/204094862-dbc184ac-19cc-4535-b47c-1a495a7e3c94.png">
 
