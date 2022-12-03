@@ -15,7 +15,7 @@ showtext_auto()
 showtext_opts(dpi=112)
 
 # 3단계: 데이터 불러오기
-setwd(dirname(rstudioapi::getSourceEditorContext()$path))
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))
 grid <- st_read("./01_code/sigun_grid/seoul.shp") 
 bnd <- st_read("./01_code/sigun_bnd/seoul.shp")  
 load("./06_geodataframe/06_apt_price.rdata")      
